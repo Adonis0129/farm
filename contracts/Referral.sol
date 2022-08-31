@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "./Interfaces/IReferral.sol";
 import "./Interfaces/IHoney.sol";
-import "./Interfaces/IFreezer.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -55,17 +54,13 @@ contract Referral is
     IHoney private HoneyToken;
     address private DevTeam;
 
-    IFreezer public Freezer;
-
     function initialize(
         address _honeyTokenAddress,
         address _admin,
-        address _devTeam,
-        address _freezerAddress
+        address _devTeam
     ) public initializer {
         HoneyToken = IHoney(_honeyTokenAddress);
         DevTeam = _devTeam;
-        Freezer = IFreezer(_freezerAddress);
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         __Pausable_init();
     }
@@ -186,26 +181,20 @@ contract Referral is
             msg.sender
         );
 
-        uint256 _rewardMultiplier = getReferralMultiplier(msg.sender);
-
         require(
-            _amount <= _currentReferralReward * _rewardMultiplier,
+            _amount <= _currentReferralReward,
             "Withdraw amount too large"
         );
 
         referralGivers[_poolAddress][msg.sender].reward =
             _currentReferralReward -
-            _amount /
-            _rewardMultiplier;
+            _amount;
         referralGivers[_poolAddress][msg.sender].rewardMask = roundMasks[
             _poolAddress
         ];
         referralGivers[_poolAddress][msg.sender].claimedRewards += _amount;
 
-        if (_amount - _amount / _rewardMultiplier > 0) {
-            HoneyToken.claimTokens(_amount - _amount / _rewardMultiplier);
-        }
-
+        HoneyToken.claimTokens(_amount);
         IERC20Upgradeable(address(HoneyToken)).safeTransfer(
             msg.sender,
             _amount
@@ -226,7 +215,7 @@ contract Referral is
             uint256 _amountToWithdraw = getReferralRewards(
                 _poolAddresses[i],
                 msg.sender
-            ) * getReferralMultiplier(msg.sender);
+            );
             withdrawReferralRewards(_amountToWithdraw, _poolAddresses[i]);
             _totalWithdrawls += _amountToWithdraw;
         }
@@ -261,13 +250,14 @@ contract Referral is
     /// @return The total earned amount
     function getTotalEarnedAmount(address _poolAddress, address _referralGiver)
         external
+        override
         view
         returns (uint256)
     {
         uint256 currentReferralRewards = getReferralRewards(
             _poolAddress,
             _referralGiver
-        ) * getReferralMultiplier(_referralGiver);
+        );
         uint256 claimedReferralRewards = referralGivers[_poolAddress][
             _referralGiver
         ].claimedRewards;
@@ -290,56 +280,6 @@ contract Referral is
         referralGivers[_poolAddress][_referralGiver].rewardMask = roundMasks[
             _poolAddress
         ];
-    }
-
-    /// @notice referral multiplier
-    /// @dev can be upgraded to include logic to add multipliers
-    function getReferralMultiplier(address _referralGiver)
-        internal
-        view
-        returns (uint256)
-    {
-        if (address(Freezer) != address(0)) {
-            return getLevel(_referralGiver);
-        } else {
-            return 1;
-        }
-    }
-
-    function getExpericencePoints(address _from)
-        public
-        view
-        override
-        returns (uint256 points)
-    {
-        return Freezer.freezerPoints(_from);
-    }
-
-    function getLevel(address _from)
-        public
-        view
-        override
-        returns (uint256 level)
-    {
-        uint256 experiencePoints = getExpericencePoints(_from);
-        level = 1;
-        if (experiencePoints >= 60000 ether) {
-            level = 5;
-        } else if (experiencePoints >= 24000 ether) {
-            level = 4;
-        } else if (experiencePoints >= 12000 ether) {
-            level = 3;
-        } else if (experiencePoints >= 3000 ether) {
-            level = 2;
-        }
-    }
-
-    /// @notice sets the experiencepoints address
-    function setFreezer(address _freezerAddress)
-        external
-        onlyRole(UPDATER_ROLE)
-    {
-        Freezer = IFreezer(_freezerAddress);
     }
 
     uint256[49] private __gap;

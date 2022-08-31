@@ -30,10 +30,9 @@ interface IReferral {
 
     function referralUpdateRewards(uint256 _rewardedAmount) external;
 
-    function getExpericencePoints(address _from)
-        external
-        view
-        returns (uint256 points);
+    function getTotalEarnedAmount(address _poolAddress, address _referralGiver) 
+        external 
+        view 
+        returns (uint256);
 
-    function getLevel(address _from) external view returns (uint256 level);
 }
