@@ -111,11 +111,11 @@ abstract contract BaseConfig is
         );
     }
 
-    function isNotPaused() internal {
+    function isNotPaused() internal view{
         require(!paused(), "PS");
     }
 
-    function isPaused() internal {
+    function isPaused() internal view{
         require(paused(), "NP");
     }
 
