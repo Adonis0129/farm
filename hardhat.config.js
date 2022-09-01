@@ -8,14 +8,17 @@ require("dotenv").config();
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-const accounts = process.env.PRIVATE_KEY
-  ? [
-      process.env.PRIVATE_KEY,
-      process.env.PRIVATE_KEY1,
-      process.env.PRIVATE_KEY2,
-      process.env.PRIVATE_KEY3
-    ]
-  : [];
+ const accounts = process.env.PRIVATE_KEY
+ ? [
+     process.env.PRIVATE_KEY,
+     process.env.PRIVATE_KEY1,
+     process.env.PRIVATE_KEY2,
+     process.env.PRIVATE_KEY3,
+     process.env.PRIVATE_KEY4,
+     process.env.PRIVATE_KEY5,
+     process.env.PRIVATE_KEY6
+   ]
+ : [];
 
 module.exports = {
   solidity: {
@@ -31,6 +34,15 @@ module.exports = {
       },
       {
         version: "0.8.2",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.8.0",
         settings: {
           optimizer: {
             enabled: true,
