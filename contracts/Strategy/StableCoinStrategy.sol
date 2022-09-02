@@ -65,11 +65,11 @@ abstract contract StableCoinStrategy is Initializable, BaseConfig {
     /// @notice Gets the current stablecoin balance for an investor. Rewards are included too
     /// @dev Pending rewards are calculated through the difference between the current round mask and the investors rewardMask according to EIP-1973
     /// @return Current stablecoin balance
-    function getStablecoinStrategyBalance() public view returns (uint256) {
+    function getStablecoinStrategyBalance() public view returns(uint256) {
         if (participantData[msg.sender].rewardMask == 0) return 0;
 
         return
-            participantData[msg.sender].amount +
+        participantData[msg.sender].amount +
             ((roundMask - participantData[msg.sender].rewardMask) *
                 participantData[msg.sender].amount) /
             DECIMAL_OFFSET;
@@ -90,9 +90,9 @@ abstract contract StableCoinStrategy is Initializable, BaseConfig {
     /// @param participant The address of the participant
     /// @return Participant data
     function getStablecoinStrategyParticipantData(address participant)
-        public
-        view
-        returns (StablecoinStrategyParticipant memory)
+    public
+    view
+    returns(StablecoinStrategyParticipant memory)
     {
         return participantData[participant];
     }

@@ -18,19 +18,19 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 /// @notice The DEX proxy is responsible to convert the different tokens and the native coin. It uses the pancakeswap swap router to exchange these tokens
 /// @dev All swaps are done on behalf of this contract. This means all tokens are owned by this contract and are then divided for the different investors in the strategy contracts
 contract DEX is
-    Initializable,
+Initializable,
     ReentrancyGuardUpgradeable,
     AccessControlUpgradeable,
     IDEX,
     PausableUpgradeable
 {
     // is necessary to receive unused bnb from the swaprouter
-    receive() external payable {}
+    receive() external payable { }
 
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    bytes32 public constant FUNDS_RECOVERY_ROLE =
-        keccak256("FUNDS_RECOVERY_ROLE");
+        bytes32 public constant FUNDS_RECOVERY_ROLE =
+            keccak256("FUNDS_RECOVERY_ROLE");
     bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -72,15 +72,15 @@ contract DEX is
     /// @return unusedTokenA The amount of token A that could not be provided as liquidity
     /// @return unusedTokenB The amount of token B that could not be provided as liquidity
     function convertEthToPairLP(address lpAddress)
-        external
-        payable
-        override
-        whenNotPaused
-        returns (
-            uint256 lpAmount,
-            uint256 unusedTokenA,
-            uint256 unusedTokenB
-        )
+    external
+    payable
+    override
+    whenNotPaused
+    returns(
+        uint256 lpAmount,
+        uint256 unusedTokenA,
+        uint256 unusedTokenB
+    )
     {
         IUniswapV2Pair LPToken = IUniswapV2Pair(lpAddress);
 
@@ -110,19 +110,19 @@ contract DEX is
 
         require(
             _pathFromEthToTokenA.length >= 2 &&
-                _pathFromEthToTokenB.length >= 2,
+            _pathFromEthToTokenB.length >= 2,
             "TN"
         );
 
         uint256 tokenAValue = SwapRouter.swapExactETHForTokens{
             value: msg.value / 2
-        }(1, _pathFromEthToTokenA, address(this), block.timestamp + 1)[
+        } (1, _pathFromEthToTokenA, address(this), block.timestamp + 1)[
             _pathFromEthToTokenA.length - 1
         ];
 
         uint256 tokenBValue = SwapRouter.swapExactETHForTokens{
             value: msg.value / 2
-        }(1, _pathFromEthToTokenB, address(this), block.timestamp + 1)[
+        } (1, _pathFromEthToTokenB, address(this), block.timestamp + 1)[
             _pathFromEthToTokenB.length - 1
         ];
 
@@ -170,15 +170,15 @@ contract DEX is
     /// @return unusedEth The amount bnbs that could not be provided as liquidity
     /// @return unusedToken The amount of the token that could not be provided as liquidity
     function convertEthToTokenLP(address token)
-        public
-        payable
-        override
-        whenNotPaused
-        returns (
-            uint256 lpAmount,
-            uint256 unusedEth,
-            uint256 unusedToken
-        )
+    public
+    payable
+    override
+    whenNotPaused
+    returns(
+        uint256 lpAmount,
+        uint256 unusedEth,
+        uint256 unusedToken
+    )
     {
         IERC20Upgradeable Token = IERC20Upgradeable(token);
 
@@ -190,7 +190,7 @@ contract DEX is
 
         uint256 tokenValue = SwapRouter.swapExactETHForTokens{
             value: msg.value / 2
-        }(1, _pathFromEthToToken, address(this), block.timestamp + 1)[
+        } (1, _pathFromEthToToken, address(this), block.timestamp + 1)[
             _pathFromEthToToken.length - 1
         ];
 
@@ -200,14 +200,14 @@ contract DEX is
         }
 
         (uint256 usedToken, uint256 usedEth, uint256 lpValue) = SwapRouter
-            .addLiquidityETH{value: msg.value / 2}(
-            address(Token),
-            tokenValue,
-            1,
-            1,
-            msg.sender,
-            block.timestamp + 1
-        );
+            .addLiquidityETH{ value: msg.value / 2 } (
+                address(Token),
+                tokenValue,
+                1,
+                1,
+                msg.sender,
+                block.timestamp + 1
+            );
 
         lpAmount = lpValue;
         unusedToken = tokenValue - usedToken;
@@ -215,7 +215,7 @@ contract DEX is
 
         // send back unused tokens / BNB
         Token.safeTransfer(msg.sender, unusedToken);
-        (bool transferSuccess, ) = payable(msg.sender).call{value: unusedEth}(
+        (bool transferSuccess, ) = payable(msg.sender).call{ value: unusedEth } (
             ""
         );
         require(transferSuccess, "TF");
@@ -227,10 +227,10 @@ contract DEX is
     /// @param lpAddress The recieved lp tokens for the liq. providing
     /// @return ethAmount The total amount of bnbs that were received from the swaps
     function convertPairLpToEth(address lpAddress, uint256 amount)
-        external
-        override
-        whenNotPaused
-        returns (uint256 ethAmount)
+    external
+    override
+    whenNotPaused
+    returns(uint256 ethAmount)
     {
         IUniswapV2Pair LPToken = IUniswapV2Pair(lpAddress);
 
@@ -262,7 +262,7 @@ contract DEX is
 
         require(
             _pathFromTokenAToEth.length >= 2 &&
-                _pathFromTokenBToEth.length >= 2,
+            _pathFromTokenBToEth.length >= 2,
             "TN"
         );
 
@@ -286,9 +286,9 @@ contract DEX is
             );
 
         uint256 allowanceA = TokenA.allowance(
-            address(this),
-            address(SwapRouter)
-        );
+                address(this),
+                address(SwapRouter)
+            );
         if (allowanceA < tokenABalance) {
             require(TokenA.approve(address(SwapRouter), tokenABalance), "FS");
         }
@@ -327,15 +327,15 @@ contract DEX is
     /// @param token The token that is one side of the bnb-token liquidity pool
     /// @return ethAmount The total amount of bnbs that were received from the swaps
     function convertTokenLpToEth(address token, uint256 amount)
-        public
-        override
-        whenNotPaused
-        returns (uint256 ethAmount)
+    public
+    override
+    whenNotPaused
+    returns(uint256 ethAmount)
     {
         address lpToken = IUniswapV2Factory(SwapRouter.factory()).getPair(
-            token,
-            SwapRouter.WETH()
-        );
+        token,
+        SwapRouter.WETH()
+    );
 
         IUniswapV2Pair LPToken = IUniswapV2Pair(lpToken);
 
@@ -384,7 +384,7 @@ contract DEX is
             block.timestamp + 1
         )[_pathFromTokenToEth.length - 1];
 
-        (bool transferSuccess, ) = payable(msg.sender).call{value: ethBalance}(
+        (bool transferSuccess, ) = payable(msg.sender).call{ value: ethBalance } (
             ""
         );
         require(transferSuccess, "TF");
@@ -397,15 +397,15 @@ contract DEX is
     /// @param token The token address to which bnbs should be converted
     /// @return tokenAmount The amount of tokens received
     function convertEthToToken(address token)
-        external
-        payable
-        override
-        whenNotPaused
-        returns (uint256 tokenAmount)
+    external
+    payable
+    override
+    whenNotPaused
+    returns(uint256 tokenAmount)
     {
         address[] memory _pathFromEthToToken = pathFromEthToToken[token];
         require(_pathFromEthToToken.length >= 2, "TN");
-        tokenAmount = SwapRouter.swapExactETHForTokens{value: msg.value}(
+        tokenAmount = SwapRouter.swapExactETHForTokens{ value: msg.value } (
             1,
             _pathFromEthToToken,
             msg.sender,
@@ -419,10 +419,10 @@ contract DEX is
     /// @param token The token address which should be converted to bnbs
     /// @return ethAmount The amount of bnbs received
     function convertTokenToEth(uint256 amount, address token)
-        external
-        override
-        whenNotPaused
-        returns (uint256 ethAmount)
+    external
+    override
+    whenNotPaused
+    returns(uint256 ethAmount)
     {
         address[] memory _pathFromTokenToEth = pathFromTokenToEth[token];
         require(_pathFromTokenToEth.length >= 2, "TN");
@@ -451,27 +451,27 @@ contract DEX is
     /// @param token The address of the token to get the price
     /// @return price The amount of tokens that can be bought with one bnb
     function getTokenEthPrice(address token)
-        external
-        view
-        override
-        returns (uint256)
+    external
+    view
+    override
+    returns(uint256)
     {
         address[] memory _pathFromEthToToken = pathFromEthToToken[token];
         require(_pathFromEthToToken.length >= 2, "TN");
 
         return
-            SwapRouter.getAmountsOut(1e18, _pathFromEthToToken)[
-                _pathFromEthToToken.length - 1
-            ];
+        SwapRouter.getAmountsOut(1e18, _pathFromEthToToken)[
+            _pathFromEthToToken.length - 1
+        ];
     }
 
     /// @notice Gets the total pending reward from pancakeswap master chef
     /// @return pendingReward The total pending reward for the lp staking
     function totalPendingReward(uint256 poolID)
-        external
-        view
-        override
-        returns (uint256)
+    external
+    view
+    override
+    returns(uint256)
     {
         address lpToken = StakingContract.lpToken(poolID);
 
@@ -483,7 +483,7 @@ contract DEX is
 
         require(
             pathFromEthToToken[address(TokenA)].length >= 2 &&
-                pathFromEthToToken[address(TokenB)].length >= 2,
+            pathFromEthToToken[address(TokenB)].length >= 2,
             "TN"
         );
 
@@ -507,7 +507,7 @@ contract DEX is
         for (
             uint256 i = 1;
             i <= pathFromEthToToken[address(TokenA)].length;
-            i++
+        i++
         ) {
             pairsTokenA[i] = pathFromEthToToken[address(TokenA)][i - 1];
         }
@@ -526,7 +526,7 @@ contract DEX is
         for (
             uint256 i = 1;
             i <= pathFromEthToToken[address(TokenB)].length;
-            i++
+        i++
         ) {
             pairsTokenB[i] = pathFromEthToToken[address(TokenB)][i - 1];
         }
@@ -549,10 +549,10 @@ contract DEX is
     /// @notice Gets the total staked amount from pancakeswap master chef
     /// @return amount The currently total staked amount in lp tokens
     function totalStakedAmount(uint256 poolID)
-        external
-        view
-        override
-        returns (uint256)
+    external
+    view
+    override
+    returns(uint256)
     {
         (uint256 amount,,) = StakingContract.userInfo(poolID, msg.sender);
         return amount;
@@ -574,8 +574,8 @@ contract DEX is
     ) external view override {
         require(
             fromToken.length == toToken.length &&
-                fromToken.length == amountIn.length &&
-                fromToken.length == amountOut.length,
+            fromToken.length == amountIn.length &&
+            fromToken.length == amountOut.length,
             "IS"
         );
         require(slippage <= MAX_PERCENTAGE, "MP");
@@ -591,7 +591,7 @@ contract DEX is
             )[1];
             require(
                 ((MAX_PERCENTAGE - slippage) * amountOut[i]) / MAX_PERCENTAGE <
-                    currentAmoutOut,
+                currentAmoutOut,
                 "SH"
             );
         }
@@ -599,14 +599,14 @@ contract DEX is
 
     /// @notice Used to recover remainder funds that are stuck
     function recoverFunds()
-        external
-        override
-        nonReentrant
-        onlyRole(FUNDS_RECOVERY_ROLE)
+    external
+    override
+    nonReentrant
+    onlyRole(FUNDS_RECOVERY_ROLE)
     {
         uint256 balance = address(this).balance;
         if (balance > 0) {
-            (bool transferSuccess, ) = payable(msg.sender).call{value: balance}(
+            (bool transferSuccess, ) = payable(msg.sender).call{ value: balance } (
                 ""
             );
             require(transferSuccess, "TF");
@@ -646,7 +646,7 @@ contract DEX is
     ) external onlyRole(UPDATER_ROLE) {
         require(
             tokens.length == pathsFromEth.length &&
-                tokens.length == pathsToEth.length,
+            tokens.length == pathsToEth.length,
             "AS"
         );
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -657,9 +657,9 @@ contract DEX is
     /// @notice Returns full path array from ETH to Token
     /// @param token The token addresses for which the path is to be returned
     function getPathArrayEthToToken(address token)
-        external
-        view
-        returns (address[] memory)
+    external
+    view
+    returns(address[] memory)
     {
         return pathFromEthToToken[token];
     }
@@ -667,9 +667,9 @@ contract DEX is
     /// @notice Returns full path array from Token to ETH
     /// @param token The token addresses for which the path is to be returned
     function getPathArrayTokenToEth(address token)
-        external
-        view
-        returns (address[] memory)
+    external
+    view
+    returns(address[] memory)
     {
         return pathFromTokenToEth[token];
     }

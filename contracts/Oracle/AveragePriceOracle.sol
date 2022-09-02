@@ -19,7 +19,7 @@ contract AveragePriceOracle is
 {
     // 30 seconds average price window
     uint32 constant TIME_PERIOD = 30;
-    uint224 constant Q112 = 2**112;
+    uint224 constant Q112 = 2 ** 112;
 
     uint256 private blockTimestampLast;
     uint224 private honeyEthPriceAverage;
@@ -38,7 +38,7 @@ contract AveragePriceOracle is
     ) public initializer {
         require(
             IUniswapV2Pair(_honeyBnbLpToken).token0() == _honeyTokenAddress ||
-                IUniswapV2Pair(_honeyBnbLpToken).token1() == _honeyTokenAddress,
+            IUniswapV2Pair(_honeyBnbLpToken).token1() == _honeyTokenAddress,
             "LA"
         );
         HoneyToken = IERC20Upgradeable(_honeyTokenAddress);
@@ -64,10 +64,10 @@ contract AveragePriceOracle is
     /// @dev uses the average price oracle to calculate the price
     /// @return amountOut the amount out in Honey Token for one BNB
     function getAverageHoneyForOneEth()
-        public
-        view
-        override
-        returns (uint256 amountOut)
+    public
+    view
+    override
+    returns(uint256 amountOut)
     {
         return (honeyEthPriceAverage * 1e18) / Q112;
     }
@@ -77,16 +77,16 @@ contract AveragePriceOracle is
     function updateHoneyEthPrice() external override whenNotPaused {
         (
             uint256 _price0Cumulative,
-            uint256 _price1Cumulative,
-            uint32 _blockTimestamp
+                uint256 _price1Cumulative,
+                    uint32 _blockTimestamp
         ) = currentCumulativePrices(HoneyBnbLpToken);
 
         // initialized the first time called
         if (blockTimestampLast == 0) {
             (
                 uint112 _reserve0,
-                uint112 _reserve1,
-                uint32 _blockTimestampLast
+                    uint112 _reserve1,
+                        uint32 _blockTimestampLast
             ) = HoneyBnbLpToken.getReserves();
 
             if (honeyIsToken0) {
@@ -120,8 +120,8 @@ contract AveragePriceOracle is
 
     /// @notice Gets the current block timestamp in uint32 format
     /// @return The current timestamp
-    function currentBlockTimestamp() internal view returns (uint32) {
-        return uint32(block.timestamp % 2**32);
+    function currentBlockTimestamp() internal view returns(uint32) {
+        return uint32(block.timestamp % 2 ** 32);
     }
 
     /// @notice Gets the current cumulative prices
@@ -131,13 +131,13 @@ contract AveragePriceOracle is
     /// @return _price1Cumulative The cumulative price for token 1
     /// @return _blockTimestamp The timestamp for the respective cumulative prices
     function currentCumulativePrices(IUniswapV2Pair pair)
-        internal
-        view
-        returns (
-            uint256 _price0Cumulative,
-            uint256 _price1Cumulative,
-            uint32 _blockTimestamp
-        )
+    internal
+    view
+    returns(
+        uint256 _price0Cumulative,
+        uint256 _price1Cumulative,
+        uint32 _blockTimestamp
+    )
     {
         _blockTimestamp = currentBlockTimestamp();
         _price0Cumulative = pair.price0CumulativeLast();
@@ -146,8 +146,8 @@ contract AveragePriceOracle is
         // if time has elapsed since the last update on the pair, mock the accumulated price values
         (
             uint112 _reserve0,
-            uint112 _reserve1,
-            uint32 _blockTimestampLast
+                uint112 _reserve1,
+                    uint32 _blockTimestampLast
         ) = pair.getReserves();
         if (_blockTimestampLast != _blockTimestamp) {
             uint32 _timeElapsed = _blockTimestamp - _blockTimestampLast;

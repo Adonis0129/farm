@@ -30,5 +30,8 @@
     "hardhat-gas-reporter": "^1.0.8",
     "hardhat-interface-generator": "^0.0.6",
     "nft.storage": "^6.2.0"
+  },
+  "dependencies": {
+    "keccak256": "^1.0.6"
   }
 }

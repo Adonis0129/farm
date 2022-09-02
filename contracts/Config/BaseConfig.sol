@@ -19,13 +19,13 @@ import "../Interfaces/IDEX.sol";
 /// @notice This contract contains all external addresses and dependencies for the grizzly contract. It also approves dependent contracts to spend tokens on behalf of grizzly.sol
 /// @dev The contract grizzly.sol inherits this contract to have all dependencies available. This contract is always inherited and never deployed alone
 abstract contract BaseConfig is
-    Initializable,
+Initializable,
     AccessControlUpgradeable,
     PausableUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-    // the role that allows updating parameters
-    bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
+        // the role that allows updating parameters
+        bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
     bytes32 public constant FUNDS_RECOVERY_ROLE =
         keccak256("FUNDS_RECOVERY_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -111,11 +111,11 @@ abstract contract BaseConfig is
         );
     }
 
-    function isNotPaused() internal view{
+    function isNotPaused() internal {
         require(!paused(), "PS");
     }
 
-    function isPaused() internal view{
+    function isPaused() internal {
         require(paused(), "NP");
     }
 

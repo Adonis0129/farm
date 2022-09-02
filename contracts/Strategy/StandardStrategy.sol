@@ -12,7 +12,7 @@ import "../Config/BaseConfig.sol";
 abstract contract StandardStrategy is Initializable, BaseConfig {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    struct StandardStrategyParticipant {
+        struct StandardStrategyParticipant {
         uint256 amount;
         uint256 lpMask;
         uint256 rewardMask;
@@ -95,11 +95,11 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
     /// @notice Gets the current standard strategy balance for an investor. Pending lp rewards are included too
     /// @dev Pending rewards are calculated through the difference between the current round mask and the investors rewardMask according to EIP-1973
     /// @return Current standard strategy balance
-    function getStandardStrategyBalance() public view returns (uint256) {
+    function getStandardStrategyBalance() public view returns(uint256) {
         if (participantData[msg.sender].lpMask == 0) return 0;
 
         return
-            participantData[msg.sender].amount +
+        participantData[msg.sender].amount +
             ((lpRoundMask - participantData[msg.sender].lpMask) *
                 participantData[msg.sender].amount) /
             DECIMAL_OFFSET;
@@ -119,7 +119,7 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
     /// @notice Claims the standard strategy investors honey rewards
     /// @dev Can be called static to get the current standard strategy honey pending reward
     /// @return The pending rewards transfered to the investor
-    function standardStrategyClaimHoney() public returns (uint256) {
+    function standardStrategyClaimHoney() public returns(uint256) {
         isNotPaused();
         updateStandardRewardMask();
         uint256 pendingRewards = participantData[msg.sender].pendingRewards;
@@ -135,11 +135,11 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
     /// @notice Gets the current standard strategy honey rewards for an investor. Pending honey rewards are included too
     /// @dev Pending rewards are calculated through the difference between the current round mask and the investors rewardMask according to EIP-1973
     /// @return Current standard strategy honey rewards
-    function getStandardStrategyHoneyRewards() public view returns (uint256) {
+    function getStandardStrategyHoneyRewards() public view returns(uint256) {
         if (participantData[msg.sender].rewardMask == 0) return 0;
 
         return
-            participantData[msg.sender].pendingRewards +
+        participantData[msg.sender].pendingRewards +
             ((honeyRoundMask - participantData[msg.sender].rewardMask) *
                 participantData[msg.sender].amount) /
             DECIMAL_OFFSET;
@@ -156,9 +156,9 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
     /// @param participant The address of the participant
     /// @return Participant data
     function getStandardStrategyParticipantData(address participant)
-        public
-        view
-        returns (StandardStrategyParticipant memory)
+    public
+    view
+    returns(StandardStrategyParticipant memory)
     {
         return participantData[participant];
     }
