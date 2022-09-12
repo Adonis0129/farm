@@ -1578,9 +1578,9 @@ contract MasterChef is Ownable {
     function deposit(uint256 _pid, uint256 _amount) public {
 
         require (_pid != 0, 'deposit CAKE by staking');
-
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
+
         updatePool(_pid);
         if (user.amount > 0) {
             uint256 pending = user.amount.mul(pool.accCakePerShare).div(1e12).sub(user.rewardDebt);
