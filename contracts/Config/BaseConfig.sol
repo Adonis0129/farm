@@ -24,10 +24,9 @@ Initializable,
     PausableUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-        // the role that allows updating parameters
-        bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
-    bytes32 public constant FUNDS_RECOVERY_ROLE =
-        keccak256("FUNDS_RECOVERY_ROLE");
+    // the role that allows updating parameters
+    bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
+    bytes32 public constant FUNDS_RECOVERY_ROLE = keccak256("FUNDS_RECOVERY_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     uint256 public constant MAX_PERCENTAGE = 100000;

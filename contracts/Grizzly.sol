@@ -14,6 +14,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
+import "hardhat/console.sol";
+
 /// @title The Grizzly contract
 /// @notice This contract put together all abstract contracts and is deployed once for each token pair (hive). It allows the user to deposit and withdraw funds to the predefined hive. In addition, rewards can be staked using stakeReward.
 /// @dev AccessControl from openzeppelin implementation is used to handle the update of the beeEfficiency level.
@@ -284,7 +286,7 @@ Initializable,
     function _deposit(uint256 amount, address referralGiver)
     internal
     returns(uint256)
-    {
+    {   
         require(amount > 0, "DL");
         _stakeRewards();
 
@@ -475,8 +477,7 @@ Initializable,
         StakingContract.deposit(PoolID, 0);
         uint256 afterAmount = RewardToken.balanceOf(address(this));
         uint256 currentRewards = afterAmount - beforeAmount;
-
-        if (currentRewards < restakeThreshold) return (0, 0, 0, 0);
+        if (currentRewards <= restakeThreshold) return (0, 0, 0, 0);
 
         // Store rewards for APY calculation
         lastStakeRewardsDuration = block.timestamp - lastStakeRewardsCall;
@@ -513,22 +514,6 @@ Initializable,
         if (standardShare > 100) stakeStandardRewards(standardShare);
         if (grizzlyShare > 100) stakeGrizzlyRewards(grizzlyShare);
         if (stablecoinShare > 100) stakeStablecoinRewards(stablecoinShare);
-
-        /*if (bnbAmount > 100 && totalDeposits != 0) {
-            // Get the price of Honey relative to BNB
-            uint256 ghnyBnbPrice = AveragePriceOracle
-                .getAverageHoneyForOneEth();
-            // get 1 % of the referralDeposit totalDeposit share
-            uint256 referralReward = (bnbAmount *
-                Referral.totalReferralDepositForPool(address(this))) /
-                totalDeposits /
-                100;
-
-            // Honey (based on Honey-BNB price) is minted
-            uint256 mintedHoney = mintTokens(referralReward, ghnyBnbPrice);
-            // referral contract is rewarded with the minted honey
-            Referral.referralUpdateRewards(mintedHoney);
-        }*/
 
         emit StakeRewardsEvent(
             msg.sender,

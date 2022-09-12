@@ -12,7 +12,7 @@ import "../Config/BaseConfig.sol";
 abstract contract GrizzlyStrategy is Initializable, BaseConfig {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-        struct GrizzlyStrategyParticipant {
+    struct GrizzlyStrategyParticipant {
         uint256 amount;
         uint256 honeyMask;
         uint256 pendingHoney;
@@ -91,10 +91,10 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
             ,
             ,
             uint256 claimedHoney,
-                uint256 claimedLp,
+            uint256 claimedLp,
             ,
             ,
-                    uint256 claimedAdditionalHoney
+            uint256 claimedAdditionalHoney
         ) = StakingPool.stakerAmounts(address(this));
 
         uint256 newHoneyTokens = claimedHoney +
@@ -152,7 +152,7 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
     /// @dev The investors honey mask is updated to the current honey round mask and the pending honeies are paid out
     /// @dev Can be called static to get the current investors pending Honey
     /// @return the pending Honey
-    function grizzlyStrategyClaimHoney() public returns(uint256) {
+    function grizzlyStrategyClaimHoney() public returns (uint256) {
         isNotPaused();
         updateRoundMasks();
         uint256 pendingHoney = participantData[msg.sender].pendingHoney +
@@ -181,8 +181,8 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
     /// @return claimedHoney The claimed honey amount
     /// @return claimedBnb The claimed bnb amount
     function grizzlyStrategyClaimLP()
-    public
-    returns(uint256 claimedHoney, uint256 claimedBnb)
+        public
+        returns (uint256 claimedHoney, uint256 claimedBnb)
     {
         isNotPaused();
         updateRoundMasks();
@@ -224,14 +224,14 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
 
     /// @notice Gets the current grizzly strategy balance from the liquidity pool
     /// @return The current grizzly strategy balance for the investor
-    function getGrizzlyStrategyBalance() public view returns(uint256) {
+    function getGrizzlyStrategyBalance() public view returns (uint256) {
         return participantData[msg.sender].amount;
     }
 
     /// @notice Gets the current staked honey for a grizzly strategy investor
     /// @dev Gets the current honey balance from the GHNY staking pool to calculate the current honey round mask. This is then used to calculate the total pending honey for the investor
     /// @return The current honey balance for a grizzly investor
-    function getGrizzlyStrategyStakedHoney() public view returns(uint256) {
+    function getGrizzlyStrategyStakedHoney() public view returns (uint256) {
         if (
             participantData[msg.sender].honeyMask == 0 ||
             grizzlyStrategyDeposits == 0
@@ -249,7 +249,7 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
             grizzlyStrategyDeposits;
 
         return
-        participantData[msg.sender].pendingHoney +
+            participantData[msg.sender].pendingHoney +
             ((currentHoneyRoundMask - participantData[msg.sender].honeyMask) *
                 participantData[msg.sender].amount) /
             DECIMAL_OFFSET;
@@ -258,7 +258,7 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
     /// @notice Gets the current staked lps for a grizzly strategy investor
     /// @dev Gets the current lp balance from the GHNY staking pool to calculate the current lp round mask. This is then used to calculate the total pending lp for the investor
     /// @return The current lp balance for a grizzly investor
-    function getGrizzlyStrategyLpRewards() external view returns(uint256) {
+    function getGrizzlyStrategyLpRewards() external view returns (uint256) {
         if (
             participantData[msg.sender].lpMask == 0 ||
             grizzlyStrategyDeposits == 0
@@ -276,7 +276,7 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
             grizzlyStrategyDeposits;
 
         return
-        participantData[msg.sender].pendingLp +
+            participantData[msg.sender].pendingLp +
             ((currentLpRoundMask - participantData[msg.sender].lpMask) *
                 participantData[msg.sender].amount) /
             DECIMAL_OFFSET;
@@ -286,9 +286,9 @@ abstract contract GrizzlyStrategy is Initializable, BaseConfig {
     /// @param participant The address of the participant
     /// @return Participant data
     function getGrizzlyStrategyParticipantData(address participant)
-    external
-    view
-    returns(GrizzlyStrategyParticipant memory)
+        external
+        view
+        returns (GrizzlyStrategyParticipant memory)
     {
         return participantData[participant];
     }

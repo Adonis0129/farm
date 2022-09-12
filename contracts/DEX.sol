@@ -14,6 +14,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
+import "hardhat/console.sol";
+
 /// @title DEX proxy
 /// @notice The DEX proxy is responsible to convert the different tokens and the native coin. It uses the pancakeswap swap router to exchange these tokens
 /// @dev All swaps are done on behalf of this contract. This means all tokens are owned by this contract and are then divided for the different investors in the strategy contracts
@@ -119,13 +121,11 @@ Initializable,
         } (1, _pathFromEthToTokenA, address(this), block.timestamp + 1)[
             _pathFromEthToTokenA.length - 1
         ];
-
         uint256 tokenBValue = SwapRouter.swapExactETHForTokens{
             value: msg.value / 2
         } (1, _pathFromEthToTokenB, address(this), block.timestamp + 1)[
             _pathFromEthToTokenB.length - 1
         ];
-
         uint256 allowanceA = TokenA.allowance(
             address(this),
             address(SwapRouter)
@@ -437,7 +437,6 @@ Initializable,
         if (allowance < amount) {
             require(tokenInstance.approve(address(SwapRouter), amount), "FS");
         }
-
         ethAmount = SwapRouter.swapExactTokensForETH(
             amount,
             1,
