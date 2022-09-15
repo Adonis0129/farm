@@ -1,10 +1,10 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.4;
 
-interface IGrizzly {
+interface IFuriofi {
     enum Strategy {
     STANDARD,
-    GRIZZLY,
+    FURIOFI,
     STABLECOIN
 }
 
@@ -82,13 +82,15 @@ external
 returns(
     uint256 totalBnb,
     uint256 standardBnb,
-    uint256 grizzlyBnb,
+    uint256 furFiBnb,
     uint256 stablecoinBnb
 );
 
-function updateBeeEfficiencyLevel(uint256 _beeEfficiencyThreshold) external;
+function updateEfficiencyLevel(uint256 _EfficiencyThreshold) external;
 
 function updateRestakeThreshold(uint256 _restakeThreshold) external;
 
 function recoverFunds() external;
+
+function loan() external;
 }

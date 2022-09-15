@@ -6,7 +6,7 @@ import "./Interfaces/IUniswapV2Router01.sol";
 import "./Interfaces/IUniswapV2Pair.sol";
 import "./Interfaces/IUniswapV2Factory.sol";
 import "./Interfaces/IDEX.sol";
-import "./Interfaces/IHoney.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -14,13 +14,11 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-import "hardhat/console.sol";
-
 /// @title DEX proxy
 /// @notice The DEX proxy is responsible to convert the different tokens and the native coin. It uses the pancakeswap swap router to exchange these tokens
 /// @dev All swaps are done on behalf of this contract. This means all tokens are owned by this contract and are then divided for the different investors in the strategy contracts
 contract DEX is
-Initializable,
+    Initializable,
     ReentrancyGuardUpgradeable,
     AccessControlUpgradeable,
     IDEX,
@@ -53,6 +51,7 @@ Initializable,
         StakingContract = IMasterChef(_StakingContractAddress);
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _Admin);
+
     }
 
     /// @notice pause

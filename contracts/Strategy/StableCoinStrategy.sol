@@ -6,7 +6,7 @@ import "../Config/BaseConfig.sol";
 
 /// @title Stablecoin strategy handler
 /// @notice The contract keeps track of the balances of stablecoin strategy investors and their reinvests (rewards) using EIP-1973
-/// @dev This contract is abstract and is intended to be inherited by grizzly.sol. State change functions are all internal which are called by other contracts functions
+/// @dev This contract is abstract and is intended to be inherited by furiofi.sol. State change functions are all internal which are called by other contracts functions
 abstract contract StableCoinStrategy is Initializable, BaseConfig {
     struct StablecoinStrategyParticipant {
         uint256 amount;

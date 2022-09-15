@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "./Interfaces/IHoney.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
 import "./Interfaces/IUniswapV2Router01.sol";
 import "./Interfaces/IUniswapV2Factory.sol";
 import "./Interfaces/IUniswapV2Pair.sol";
@@ -92,7 +92,7 @@ contract LaunchSale is
     function unpause() external whenPaused onlyRole(PAUSER_ROLE) {
         _unpause();
     }
-
+  
     /// @notice Used to increase the buy order amount for the user. Can be called multiple times. Can only be called while the contract is in the OPEN state
     function buy() public payable whenNotPaused {
         require(saleState == SaleState.OPEN, "Sale is not open");

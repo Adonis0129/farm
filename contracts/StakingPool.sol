@@ -7,13 +7,13 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./Interfaces/IUniswapV2Router01.sol";
 import "./Interfaces/IUniswapV2Pair.sol";
-import "./Interfaces/IHoney.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
 import "./Interfaces/IStakingPool.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-/// @title The honey staking pool
-/// @notice The honey staking pool allows to stake honeys and get lp and honey rewards. Lp tokens are rewarded through rewards from the liquidity pools (see tokenflow)
-/// @dev The share of lp and honey rewards is done with roundmasks according to EIP-1973
+/// @title The furFi staking pool
+/// @notice The furFi staking pool allows to stake furFis and get lp and furFi rewards. Lp tokens are rewarded through rewards from the liquidity pools (see tokenflow)
+/// @dev The share of lp and furFi rewards is done with roundmasks according to EIP-1973
 contract StakingPool is
     Initializable,
     AccessControlUpgradeable,
@@ -29,24 +29,24 @@ contract StakingPool is
 
     struct StakerAmounts {
         uint256 stakedAmount;
-        uint256 honeyMask;
+        uint256 furFiMask;
         uint256 lpMask;
         uint256 pendingLp;
-        uint256 claimedHoney;
+        uint256 claimedFurFi;
         uint256 claimedLp;
-        uint256 honeyMintMask;
-        uint256 pendingHoneyMint;
-        uint256 claimedHoneyMint;
+        uint256 furFiMintMask;
+        uint256 pendingFurFiMint;
+        uint256 claimedFurFiMint;
     }
 
     IUniswapV2Router01 public SwapRouter;
-    IHoney public StakedToken;
+    IFurioFinanceToken public StakedToken;
     IERC20Upgradeable public LPToken;
 
-    uint256 private honeyRoundMask;
+    uint256 private furFiRoundMask;
     uint256 private lpRoundMask;
-    uint256 private honeyMintRoundMask;
-    uint256 private lastHoneyMintRoundMaskUpdateBlock;
+    uint256 private furFiMintRoundMask;
+    uint256 private lastFurFiMintRoundMaskUpdateBlock;
     uint256 private blockRewardPhase1End;
     uint256 private blockRewardPhase2Start;
     uint256 private blockRewardPhase1Amount;
@@ -54,7 +54,7 @@ contract StakingPool is
 
     uint256 public totalStaked;
     uint256 public totalBnbClaimed;
-    uint256 public totalHoneyClaimed;
+    uint256 public totalFurFiClaimed;
 
     mapping(address => StakerAmounts) public override stakerAmounts;
 
@@ -78,16 +78,17 @@ contract StakingPool is
             "LP token does not contain one side of token address"
         );
 
-        honeyRoundMask = 1;
+        furFiRoundMask = 1;
         lpRoundMask = 1;
-        honeyMintRoundMask = 1;
+        furFiMintRoundMask = 1;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         SwapRouter = IUniswapV2Router01(swapRouterAddress);
-        StakedToken = IHoney(tokenAddress);
+        StakedToken = IFurioFinanceToken(tokenAddress);
         LPToken = IERC20Upgradeable(lpAddress);
         LPToken.safeApprove(swapRouterAddress, type(uint256).max);
         __Pausable_init();
+
     }
 
     /// @notice pause
@@ -102,21 +103,21 @@ contract StakingPool is
         _unpause();
     }
 
-    /// @notice Stakes the desired amount of honey into the staking pool
+    /// @notice Stakes the desired amount of furFi into the staking pool
     /// @dev Lp reward masks are updated before the staking to have a clean state
     /// @param amount The desired staking amount
     function stake(uint256 amount) external override whenNotPaused {
-        // if first stake initialize lastHoneyMintRoundMaskUpdateBlock
-        if (lastHoneyMintRoundMaskUpdateBlock == 0) {
-            lastHoneyMintRoundMaskUpdateBlock = block.number;
+        // if first stake initialize lastFurFiMintRoundMaskUpdateBlock
+        if (lastFurFiMintRoundMaskUpdateBlock == 0) {
+            lastFurFiMintRoundMaskUpdateBlock = block.number;
         }
 
         updateLpRewardMask();
         updateAdditionalMintRewardMask();
         uint256 currentBalance = balanceOf(msg.sender);
 
-        if (stakerAmounts[msg.sender].honeyMintMask == 0)
-            stakerAmounts[msg.sender].honeyMintMask = honeyMintRoundMask;
+        if (stakerAmounts[msg.sender].furFiMintMask == 0)
+            stakerAmounts[msg.sender].furFiMintMask = furFiMintRoundMask;
 
         if (amount > 0) {
             IERC20Upgradeable(address(StakedToken)).safeTransferFrom(
@@ -133,12 +134,12 @@ contract StakingPool is
             amount;
 
         stakerAmounts[msg.sender].stakedAmount = currentBalance + amount;
-        stakerAmounts[msg.sender].honeyMask = honeyRoundMask;
+        stakerAmounts[msg.sender].furFiMask = furFiRoundMask;
 
         emit Stake(msg.sender, amount);
     }
 
-    /// @notice Unstake the desired amount of honey from the staking pool
+    /// @notice Unstake the desired amount of furFi from the staking pool
     /// @dev Lp reward masks are updated before the unstaking to have a clean state
     /// @param amount The desired unstaking amount
     function unstake(uint256 amount) external override whenNotPaused {
@@ -156,8 +157,8 @@ contract StakingPool is
             amount;
 
         stakerAmounts[msg.sender].stakedAmount = currentBalance - amount;
-        stakerAmounts[msg.sender].honeyMask = honeyRoundMask;
-        stakerAmounts[msg.sender].claimedHoney += amount;
+        stakerAmounts[msg.sender].furFiMask = furFiRoundMask;
+        stakerAmounts[msg.sender].claimedFurFi += amount;
 
         IERC20Upgradeable(address(StakedToken)).safeTransfer(
             msg.sender,
@@ -168,23 +169,23 @@ contract StakingPool is
     }
 
     /// @notice Gets the current staked balance
-    /// @dev Returns the staked amount and all the honey rewards together
+    /// @dev Returns the staked amount and all the furFi rewards together
     /// @param staker The staker address whos balance is requested
-    /// @return The staked amount in honey
+    /// @return The staked amount in furFi
     function balanceOf(address staker) public view override returns (uint256) {
-        if (stakerAmounts[staker].honeyMask == 0) return 0;
+        if (stakerAmounts[staker].furFiMask == 0) return 0;
 
         return
             stakerAmounts[staker].stakedAmount +
-            ((honeyRoundMask - stakerAmounts[staker].honeyMask) *
+            ((furFiRoundMask - stakerAmounts[staker].furFiMask) *
                 stakerAmounts[staker].stakedAmount) /
             DECIMAL_OFFSET;
     }
 
-    /// @notice Rewards the staking pool with honey
+    /// @notice Rewards the staking pool with furFi
     /// @dev The round mask is increased according to the reward
     /// @param amount The amount to be rewarded
-    function rewardHoney(uint256 amount)
+    function rewardFurFi(uint256 amount)
         external
         override
         whenNotPaused
@@ -196,7 +197,7 @@ contract StakingPool is
             address(this),
             amount
         );
-        honeyRoundMask += (DECIMAL_OFFSET * amount) / totalStaked;
+        furFiRoundMask += (DECIMAL_OFFSET * amount) / totalStaked;
     }
 
     /// @notice Gets the current lp balance
@@ -227,34 +228,34 @@ contract StakingPool is
         stakerAmounts[msg.sender].lpMask = lpRoundMask;
     }
 
-    /// @notice Updates the additional Honey Minting round mask
+    /// @notice Updates the additional FurFi Minting round mask
     /// @dev Updates the round mask based on the number of blocks passed since last update, current block reward and total staked amount
     function updateAdditionalMintRoundMask() public override whenNotPaused {
         if (totalStaked == 0) return;
 
-        uint256 totalPendingRewards = getHoneyMintRewardsInRange(
-            lastHoneyMintRoundMaskUpdateBlock,
+        uint256 totalPendingRewards = getFurFiMintRewardsInRange(
+            lastFurFiMintRoundMaskUpdateBlock,
             block.number
         );
 
-        lastHoneyMintRoundMaskUpdateBlock = block.number;
-        honeyMintRoundMask +=
+        lastFurFiMintRoundMaskUpdateBlock = block.number;
+        furFiMintRoundMask +=
             (DECIMAL_OFFSET * totalPendingRewards) /
             totalStaked;
     }
 
     function updateAdditionalMintRewardMask() public whenNotPaused {
         updateAdditionalMintRoundMask();
-        uint256 pendingHoneyRewards = getPendingHoneyRewards();
+        uint256 pendingFurFiRewards = getPendingFurFiRewards();
 
-        stakerAmounts[msg.sender].pendingHoneyMint = pendingHoneyRewards;
-        stakerAmounts[msg.sender].honeyMintMask = honeyMintRoundMask;
+        stakerAmounts[msg.sender].pendingFurFiMint = pendingFurFiRewards;
+        stakerAmounts[msg.sender].furFiMintMask = furFiMintRoundMask;
     }
 
     /// @notice Returns the rewards generated in a specific block range
     /// @param fromBlock The starting block (exclusive)
     /// @param toBlock The ending block (inclusive)
-    function getHoneyMintRewardsInRange(uint256 fromBlock, uint256 toBlock)
+    function getFurFiMintRewardsInRange(uint256 fromBlock, uint256 toBlock)
         public
         view
         override
@@ -314,17 +315,17 @@ contract StakingPool is
         return phase1Rewards + linearPhaseRewards + phase2Rewards;
     }
 
-    /// @notice Returns te pending amount of minted Honey rewards
+    /// @notice Returns te pending amount of minted FurFi rewards
     /// @dev The result is based on the current round mask, as well as the change in the round mask since the last update
     /// @return Pending rewards
-    function getPendingHoneyRewards() public view override returns (uint256) {
-        if (stakerAmounts[msg.sender].honeyMintMask == 0) return 0;
+    function getPendingFurFiRewards() public view override returns (uint256) {
+        if (stakerAmounts[msg.sender].furFiMintMask == 0) return 0;
 
-        uint256 currentRoundMask = honeyMintRoundMask;
+        uint256 currentRoundMask = furFiMintRoundMask;
 
         if (totalStaked > 0) {
-            uint256 totalPendingRewards = getHoneyMintRewardsInRange(
-                lastHoneyMintRoundMaskUpdateBlock,
+            uint256 totalPendingRewards = getFurFiMintRewardsInRange(
+                lastFurFiMintRoundMaskUpdateBlock,
                 block.number
             );
 
@@ -334,20 +335,20 @@ contract StakingPool is
         }
 
         return
-            stakerAmounts[msg.sender].pendingHoneyMint +
-            ((currentRoundMask - stakerAmounts[msg.sender].honeyMintMask) *
+            stakerAmounts[msg.sender].pendingFurFiMint +
+            ((currentRoundMask - stakerAmounts[msg.sender].furFiMintMask) *
                 stakerAmounts[msg.sender].stakedAmount) /
             DECIMAL_OFFSET;
     }
 
-    /// @notice Withdraws LP tokens to remove liquidity from pancakeswap and withdraws additional honey rewards
-    /// @dev Uses the pancakeswap router to remove liquidity with the desired LP amount. The staked token and the corresponding bnb are transferred to the account. In addition a reward in honey token is calculated and minted for the account
+    /// @notice Withdraws LP tokens to remove liquidity from pancakeswap and withdraws additional furFi rewards
+    /// @dev Uses the pancakeswap router to remove liquidity with the desired LP amount. The staked token and the corresponding bnb are transferred to the account. In addition a reward in furFi token is calculated and minted for the account
     /// @param amount The desired lp amount which should be used to remove liquidity from pancakeswap
-    /// @param additionalHoneyAmount The desired additional honey amount to be claimed
-    /// @param to The Account the staked token, the bnb and the additional honey reward is sent to
+    /// @param additionalFurFiAmount The desired additional furFi amount to be claimed
+    /// @param to The Account the staked token, the bnb and the additional furFi reward is sent to
     function claimLpTokens(
         uint256 amount,
-        uint256 additionalHoneyAmount,
+        uint256 additionalFurFiAmount,
         address to
     )
         public
@@ -379,32 +380,32 @@ contract StakingPool is
             );
         }
 
-        if (additionalHoneyAmount > 0) {
+        if (additionalFurFiAmount > 0) {
             require(
-                stakerAmounts[msg.sender].pendingHoneyMint >=
-                    additionalHoneyAmount,
-                "Requested additionalHoneyAmount too large"
+                stakerAmounts[msg.sender].pendingFurFiMint >=
+                    additionalFurFiAmount,
+                "Requested additionalFurFiAmount too large"
             );
 
-            stakerAmounts[msg.sender].pendingHoneyMint -= additionalHoneyAmount;
-            stakerAmounts[msg.sender].claimedHoneyMint += additionalHoneyAmount;
+            stakerAmounts[msg.sender].pendingFurFiMint -= additionalFurFiAmount;
+            stakerAmounts[msg.sender].claimedFurFiMint += additionalFurFiAmount;
 
-            StakedToken.claimTokens(additionalHoneyAmount);
+            StakedToken.claimTokens(additionalFurFiAmount);
             IERC20Upgradeable(address(StakedToken)).safeTransfer(
                 to,
-                additionalHoneyAmount
+                additionalFurFiAmount
             );
         }
 
-        totalHoneyClaimed += removedStakedToken + additionalHoneyAmount;
+        totalFurFiClaimed += removedStakedToken + additionalFurFiAmount;
         totalBnbClaimed += removedBnb;
 
         emit ClaimRewards(
             msg.sender,
-            removedStakedToken + additionalHoneyAmount,
+            removedStakedToken + additionalFurFiAmount,
             removedBnb
         );
-        return (removedStakedToken + additionalHoneyAmount, removedBnb);
+        return (removedStakedToken + additionalFurFiAmount, removedBnb);
     }
 
     /// @notice Rewards lp to the conract
@@ -426,12 +427,12 @@ contract StakingPool is
         lpRoundMask += (DECIMAL_OFFSET * amount) / totalStaked;
     }
 
-    /// @notice Sets the honey minting transition times and amounts
+    /// @notice Sets the furFi minting transition times and amounts
     /// @param _blockRewardPhase1End the block after which Phase 1 ends
     /// @param _blockRewardPhase2Start the block after which Phase 2 starts
     /// @param _blockRewardPhase1Amount the block rewards during Phase 1
     /// @param _blockRewardPhase2Amount the block rewards during Phase 2
-    function setHoneyMintingRewards(
+    function setFurFiMintingRewards(
         uint256 _blockRewardPhase1End,
         uint256 _blockRewardPhase2Start,
         uint256 _blockRewardPhase1Amount,

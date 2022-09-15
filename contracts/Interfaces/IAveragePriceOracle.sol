@@ -2,10 +2,10 @@
 pragma solidity ^0.8.4;
 
 interface IAveragePriceOracle {
-    function getAverageHoneyForOneEth()
-external
-view
-returns(uint256 amountOut);
+    function getAverageFurFiForOneEth()
+    external
+    view
+    returns(uint256 amountOut);
 
-function updateHoneyEthPrice() external;
+    function updateFurFiEthPrice() external;
 }

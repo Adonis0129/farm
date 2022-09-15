@@ -7,22 +7,22 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "./Interfaces/IHoney.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
 
-/// @title Honey token ERC20 contract
-/// @notice The honey token is the token for grizzlyfi. It implements the ERC20 fungible token standard. In addition it allows defined contracts to mint freshly new tokens.
+/// @title FurioFinance token ERC20 contract
+/// @notice The furioFinance token is the token for furiofi. It implements the ERC20 fungible token standard. In addition it allows defined contracts to mint freshly new tokens.
 /// The token supports openzeppelin governance as an erc20 token with voting power. It will be used by a Governor in the future to determine the participants voting powers.
 /// @dev AccessControl from openzeppelin implementation is used to handle the minter roles.
 /// User with DEFAULT_ADMIN_ROLE can grant MINTER_ROLE to any address.
 /// The DEFAULT_ADMIN_ROLE is intended to be a 2 out of 3 multisig wallet in the beginning and then be moved to governance in the future.
-contract HoneyToken is
+contract FurioFinanceToken is
     Initializable,
     ERC20Upgradeable,
     ERC20PermitUpgradeable,
     ERC20VotesUpgradeable,
     AccessControlUpgradeable,
     PausableUpgradeable,
-    IHoney
+    IFurioFinanceToken
 {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");

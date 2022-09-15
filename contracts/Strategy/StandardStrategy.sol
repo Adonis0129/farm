@@ -7,8 +7,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "../Config/BaseConfig.sol";
 
 /// @title Standard strategy handler
-/// @notice The contract keeps track of the balances of the lp tokens and their reinvests (rewards) including the honey rewards using EIP-1973
-/// @dev This contract is abstract and is intended to be inherited by grizzly.sol. Honey rewards and lp rewards are handled using a round mask
+/// @notice The contract keeps track of the balances of the lp tokens and their reinvests (rewards) including the furFiToken rewards using EIP-1973
+/// @dev This contract is abstract and is intended to be inherited by furiofi.sol. FurFiToken rewards and lp rewards are handled using a round mask
 abstract contract StandardStrategy is Initializable, BaseConfig {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -23,10 +23,10 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
     uint256 public lpRoundMask;
     uint256 public standardStrategyDeposits;
 
-    uint256 public totalHoneyRewards;
+    uint256 public totalFurFiTokenRewards;
     uint256 private honeyRoundMask;
 
-    event StandardStrategyClaimHoneyEvent(
+    event StandardStrategyClaimFurFiTokenEvent(
         address indexed user,
         uint256 honeyAmount
     );
@@ -105,37 +105,37 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
             DECIMAL_OFFSET;
     }
 
-    /// @notice Adds global honey rewards to the contract
-    /// @dev The honey roundmask is increased by the share of the rewarded amount such that investors get their share of pending honey rewards
-    /// @param amount The amount of honey to be rewarded
-    function standardStrategyRewardHoney(uint256 amount) internal {
+    /// @notice Adds global furFiToken rewards to the contract
+    /// @dev The furFiToken roundmask is increased by the share of the rewarded amount such that investors get their share of pending furFiToken rewards
+    /// @param amount The amount of furFiToken to be rewarded
+    function standardStrategyRewardFurFi(uint256 amount) internal {
         if (standardStrategyDeposits == 0) {
             return;
         }
-        totalHoneyRewards += amount;
+        totalFurFiTokenRewards += amount;
         honeyRoundMask += (DECIMAL_OFFSET * amount) / standardStrategyDeposits;
     }
 
-    /// @notice Claims the standard strategy investors honey rewards
-    /// @dev Can be called static to get the current standard strategy honey pending reward
+    /// @notice Claims the standard strategy investors furFiToken rewards
+    /// @dev Can be called static to get the current standard strategy furFiToken pending reward
     /// @return The pending rewards transfered to the investor
-    function standardStrategyClaimHoney() public returns (uint256) {
+    function standardStrategyClaimFurFi() public returns (uint256) {
         isNotPaused();
         updateStandardRewardMask();
         uint256 pendingRewards = participantData[msg.sender].pendingRewards;
         participantData[msg.sender].pendingRewards = 0;
-        IERC20Upgradeable(address(HoneyToken)).safeTransfer(
+        IERC20Upgradeable(address(FurFiToken)).safeTransfer(
             msg.sender,
             pendingRewards
         );
-        emit StandardStrategyClaimHoneyEvent(msg.sender, pendingRewards);
+        emit StandardStrategyClaimFurFiTokenEvent(msg.sender, pendingRewards);
         return pendingRewards;
     }
 
-    /// @notice Gets the current standard strategy honey rewards for an investor. Pending honey rewards are included too
+    /// @notice Gets the current standard strategy furFiToken rewards for an investor. Pending furFiToken rewards are included too
     /// @dev Pending rewards are calculated through the difference between the current round mask and the investors rewardMask according to EIP-1973
-    /// @return Current standard strategy honey rewards
-    function getStandardStrategyHoneyRewards() public view returns (uint256) {
+    /// @return Current standard strategy furFiToken rewards
+    function getStandardStrategyFurFiRewards() public view returns (uint256) {
         if (participantData[msg.sender].rewardMask == 0) return 0;
 
         return
@@ -145,9 +145,9 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
             DECIMAL_OFFSET;
     }
 
-    /// @notice Updates the standard strategy honey rewards mask
+    /// @notice Updates the standard strategy furFiToken rewards mask
     function updateStandardRewardMask() private {
-        uint256 currentRewardBalance = getStandardStrategyHoneyRewards();
+        uint256 currentRewardBalance = getStandardStrategyFurFiRewards();
         participantData[msg.sender].pendingRewards = currentRewardBalance;
         participantData[msg.sender].rewardMask = honeyRoundMask;
     }
