@@ -83,9 +83,9 @@ describe("Contracts deploy", () => {
   });
 
   it("Token deploy", async () => {
-    Token = await ethers.getContractFactory("HoneyToken");
+    Token = await ethers.getContractFactory("FurioFinanceToken");
     if (!isOnchain) {
-      token = await upgrades.deployProxy(Token,["HouseToken", "$HT", toBigNum("1000000", 18), owner.address, "0xC01cbc79644283782BabE262D1C56493d83D6fe2", "0x105F706AB60fcc1F760b1b6cAD331A647272BDCb", "0x56edb7B2AB826B64c26C599C050B909c4d8E1a29", "0x4962B860e02eb883CB02Bd879641f3d637e123fC"]);
+      token = await upgrades.deployProxy(Token,["FurioFinanceToken", "$FURFI", toBigNum("1000000", 18), owner.address, "0xC01cbc79644283782BabE262D1C56493d83D6fe2", "0x105F706AB60fcc1F760b1b6cAD331A647272BDCb", "0x56edb7B2AB826B64c26C599C050B909c4d8E1a29", "0x4962B860e02eb883CB02Bd879641f3d637e123fC"]);
       await token.deployed();
     }
     else{

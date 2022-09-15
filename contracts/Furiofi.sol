@@ -2,11 +2,11 @@
 pragma solidity ^0.8.4;
 
 import "./DEX.sol";
-import "./Strategy/GrizzlyStrategy.sol";
+import "./Strategy/FuriofiStrategy.sol";
 import "./Strategy/StableCoinStrategy.sol";
 import "./Strategy/StandardStrategy.sol";
 import "./Config/BaseConfig.sol";
-import "./Interfaces/IGrizzly.sol";
+import "./Interfaces/IFuriofi.sol";
 import "./Oracle/AveragePriceOracle.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -14,22 +14,20 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-import "hardhat/console.sol";
-
-/// @title The Grizzly contract
+/// @title The Furiofi contract
 /// @notice This contract put together all abstract contracts and is deployed once for each token pair (hive). It allows the user to deposit and withdraw funds to the predefined hive. In addition, rewards can be staked using stakeReward.
 /// @dev AccessControl from openzeppelin implementation is used to handle the update of the beeEfficiency level.
 /// User with DEFAULT_ADMIN_ROLE can grant UPDATER_ROLE to any address.
 /// The DEFAULT_ADMIN_ROLE is intended to be a 2 out of 3 multisig wallet in the beginning and then be moved to governance in the future.
 /// The Contract uses ReentrancyGuard from openzeppelin for all transactions that transfer bnbs to the msg.sender
-contract Grizzly is
-Initializable,
+contract Furiofi is
+    Initializable,
     BaseConfig,
-    GrizzlyStrategy,
+    FuriofiStrategy,
     StableCoinStrategy,
     StandardStrategy,
     ReentrancyGuardUpgradeable,
-    IGrizzly
+    IFuriofi
 {
     receive() external payable { }
 
@@ -39,8 +37,8 @@ Initializable,
             address _Admin,
             address _StakingContractAddress,
             address _StakingPoolAddress,
-            address _HoneyTokenAddress,
-            address _HoneyBnbLpTokenAddress,
+            address _FurFiTokenAddress,
+            address _FurFiBnbLpTokenAddress,
             address _DevTeamAddress,
             address _ReferralAddress,
             address _AveragePriceOracleAddress,
@@ -51,8 +49,8 @@ Initializable,
             _Admin,
             _StakingContractAddress,
             _StakingPoolAddress,
-            _HoneyTokenAddress,
-            _HoneyBnbLpTokenAddress,
+            _FurFiTokenAddress,
+            _FurFiBnbLpTokenAddress,
             _DevTeamAddress,
             _ReferralAddress,
             _AveragePriceOracleAddress,
@@ -60,14 +58,14 @@ Initializable,
             _PoolID
         );
         __StandardStrategy_init();
-        __GrizzlyStrategy_init();
+        __FuriofiStrategy_init();
         __StableCoinStrategy_init();
         __Pausable_init();
 
-        beeEfficiencyLevel = 500 ether;
+        EfficiencyLevel = 500 ether;
     }
 
-    uint256 public beeEfficiencyLevel;
+    uint256 public EfficiencyLevel;
 
     mapping(address => Strategy) public userStrategy;
     uint256 public totalUnusedTokenA;
@@ -80,6 +78,13 @@ Initializable,
     uint256 public lastStakeRewardsDeposit;
     uint256 public lastStakeRewardsCake;
     uint256 public restakeThreshold;
+
+    struct LoanParticipant {
+        uint256 loanableAmount; // loanable furFiToken token amount
+        uint256 loanedAmount; // loaned furFiToken token amount
+    }
+    uint256 totalLoanedAmount;
+    mapping(address => LoanParticipant) private LoanParticipantData;
 
     event DepositEvent(
         address indexed user,
@@ -100,7 +105,7 @@ Initializable,
         address indexed caller,
         uint256 bnbAmount,
         uint256 standardShare,
-        uint256 grizzlyShare,
+        uint256 furiofiShare,
         uint256 stablecoinShare
     );
 
@@ -140,7 +145,17 @@ Initializable,
         isNotPaused();
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
-        return _deposit(msg.value, referralGiver);
+
+        //send 3% of bnb to devTeam
+        (bool transferSuccess, ) = payable(DevTeam).call{ value: msg.value * 30 / 1000 } ("");
+        require(transferSuccess, "TF");
+
+        // set loanable amount
+        AveragePriceOracle.updateFurFiEthPrice();
+        uint256 furFiAmountPerBNB =  AveragePriceOracle.getAverageFurFiForOneEth();
+        LoanParticipantData[msg.sender].loanableAmount = msg.value * 970 / 1000 * furFiAmountPerBNB;
+
+        return _deposit(msg.value * 970 / 1000, referralGiver);
     }
 
     /// @notice The public deposit from token function
@@ -175,7 +190,17 @@ Initializable,
             TokenInstance.approve(address(DEX), amount);
         }
         uint256 amountConverted = DEX.convertTokenToEth(amount, token);
-        return _deposit(amountConverted, referralGiver);
+
+        //send 3% of bnb to devTeam
+        (bool transferSuccess, ) = payable(DevTeam).call{ value: amountConverted * 30 / 1000 } ("");
+        require(transferSuccess, "TF");
+
+        // set loanable amount
+        AveragePriceOracle.updateFurFiEthPrice();
+        uint256 furFiAmountPerBNB =  AveragePriceOracle.getAverageFurFiForOneEth();
+        LoanParticipantData[msg.sender].loanableAmount = amountConverted * 970 / 1000 * furFiAmountPerBNB;
+
+        return _deposit(amountConverted * 970 / 1000, referralGiver);
     }
 
     /// @notice The public withdraw function
@@ -198,6 +223,25 @@ Initializable,
         uint256 deadline
     ) external override nonReentrant returns(uint256) {
         isNotPaused();
+
+        //repayment some loaned token
+        if(LoanParticipantData[msg.sender].loanedAmount > 0)
+        {
+            uint256 stakingAmount;
+            if (userStrategy[msg.sender] == Strategy.STANDARD) {
+                stakingAmount = getStandardStrategyBalance();
+            } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
+                stakingAmount = getFuriofiStrategyBalance();
+            } else {
+                stakingAmount = getStablecoinStrategyBalance();
+            }
+
+            uint256 repaymentAmount = LoanParticipantData[msg.sender].loanedAmount * amount / stakingAmount;
+            require(FurFiToken.balanceOf(msg.sender) >= repaymentAmount);
+            FurFiToken.transferFrom(msg.sender, address(this), repaymentAmount);
+            LoanParticipantData[msg.sender].loanedAmount -= repaymentAmount;
+        }
+
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
         _stakeRewards();
@@ -224,6 +268,16 @@ Initializable,
         uint256 deadline
     ) external override nonReentrant returns(uint256) {
         isNotPaused();
+
+        //repayment all loaned token
+        if(LoanParticipantData[msg.sender].loanedAmount > 0)
+        {   
+            uint256 loanedAmount = LoanParticipantData[msg.sender].loanedAmount;
+            require(FurFiToken.balanceOf(msg.sender) >= loanedAmount, "Don't exist enough loaned token to repayment");
+            FurFiToken.transferFrom(msg.sender, address(this), loanedAmount);
+            LoanParticipantData[msg.sender].loanedAmount = 0;
+        }
+
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
         _stakeRewards();
@@ -231,8 +285,8 @@ Initializable,
 
         if (userStrategy[msg.sender] == Strategy.STANDARD) {
             currentDeposits = getStandardStrategyBalance();
-        } else if (userStrategy[msg.sender] == Strategy.GRIZZLY) {
-            currentDeposits = getGrizzlyStrategyBalance();
+        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
+            currentDeposits = getFuriofiStrategyBalance();
         } else {
             currentDeposits = getStablecoinStrategyBalance();
         }
@@ -267,6 +321,25 @@ Initializable,
         uint256 deadline
     ) external override nonReentrant returns(uint256) {
         isNotPaused();
+
+        //repayment some loaned token
+        if(LoanParticipantData[msg.sender].loanedAmount > 0)
+        {
+            uint256 stakingAmount;
+            if (userStrategy[msg.sender] == Strategy.STANDARD) {
+                stakingAmount = getStandardStrategyBalance();
+            } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
+                stakingAmount = getFuriofiStrategyBalance();
+            } else {
+                stakingAmount = getStablecoinStrategyBalance();
+            }
+
+            uint256 repaymentAmount = LoanParticipantData[msg.sender].loanedAmount * amount / stakingAmount;
+            require(FurFiToken.balanceOf(msg.sender) >= repaymentAmount);
+            FurFiToken.transferFrom(msg.sender, address(this), repaymentAmount);
+            LoanParticipantData[msg.sender].loanedAmount -= repaymentAmount;
+        }
+
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
         _stakeRewards();
@@ -291,7 +364,7 @@ Initializable,
         _stakeRewards();
 
         (uint256 lpValue, uint256 unusedTokenA, uint256 unusedTokenB) = DEX
-            .convertEthToPairLP{ value: amount } (address(LPToken));
+            .convertEthToPairLP{ value: amount} (address(LPToken));
 
         if (unusedTokenA > 0 || unusedTokenB > 0) {
             uint256 excessAmount;
@@ -317,8 +390,8 @@ Initializable,
 
         if (userStrategy[msg.sender] == Strategy.STANDARD) {
             standardStrategyDeposit(lpValue);
-        } else if (userStrategy[msg.sender] == Strategy.GRIZZLY) {
-            grizzlyStrategyDeposit(lpValue);
+        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
+            furiofiStrategyDeposit(lpValue);
         } else {
             stablecoinStrategyDeposit(lpValue);
         }
@@ -337,11 +410,11 @@ Initializable,
     function _withdraw(uint256 amount) internal returns(uint256) {
         if (userStrategy[msg.sender] == Strategy.STANDARD) {
             standardStrategyWithdraw(amount);
-            standardStrategyClaimHoney();
-        } else if (userStrategy[msg.sender] == Strategy.GRIZZLY) {
-            grizzlyStrategyWithdraw(amount);
-            grizzlyStrategyClaimHoney();
-            grizzlyStrategyClaimLP();
+            standardStrategyClaimFurFi();
+        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
+            furiofiStrategyWithdraw(amount);
+            furiofiStrategyClaimFurFi();
+            furiofiStrategyClaimLP();
         } else {
             stablecoinStrategyWithdraw(amount);
         }
@@ -385,14 +458,14 @@ Initializable,
             currentDeposits = getStandardStrategyBalance();
             if (currentDeposits > 0) {
                 standardStrategyWithdraw(currentDeposits);
-                standardStrategyClaimHoney();
+                standardStrategyClaimFurFi();
             }
-        } else if (userStrategy[msg.sender] == Strategy.GRIZZLY) {
-            currentDeposits = getGrizzlyStrategyBalance();
+        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
+            currentDeposits = getFuriofiStrategyBalance();
             if (currentDeposits > 0) {
-                grizzlyStrategyWithdraw(currentDeposits);
-                grizzlyStrategyClaimHoney();
-                grizzlyStrategyClaimLP();
+                furiofiStrategyWithdraw(currentDeposits);
+                furiofiStrategyClaimFurFi();
+                furiofiStrategyClaimLP();
             }
         } else {
             currentDeposits = getStablecoinStrategyBalance();
@@ -404,8 +477,8 @@ Initializable,
         if (currentDeposits > 0) {
             if (toStrategy == Strategy.STANDARD)
                 standardStrategyDeposit(currentDeposits);
-            else if (toStrategy == Strategy.GRIZZLY)
-                grizzlyStrategyDeposit(currentDeposits);
+            else if (toStrategy == Strategy.FURIOFI)
+                furiofiStrategyDeposit(currentDeposits);
             else stablecoinStrategyDeposit(currentDeposits);
         }
 
@@ -427,7 +500,7 @@ Initializable,
     /// @param deadline The deadline for the transaction
     /// @return totalBnb The total BNB reward
     /// @return standardBnb the standard BNB reward
-    /// @return grizzlyBnb the grizzly BNB reward
+    /// @return furiofiBnb the furiofi BNB reward
     /// @return stablecoinBnb the stalbcoin BNB reward
     function stakeRewards(
         address[] memory fromToken,
@@ -443,7 +516,7 @@ Initializable,
     returns(
         uint256 totalBnb,
         uint256 standardBnb,
-        uint256 grizzlyBnb,
+        uint256 furiofiBnb,
         uint256 stablecoinBnb
     )
     {
@@ -458,21 +531,21 @@ Initializable,
     /// Then executes the stakereward for the strategies. StakingContract.deposit(PoolID, 0); is executed in order to update the balance of the reward token
     /// @return totalBnb The total BNB reward
     /// @return standardBnb the standard BNB reward
-    /// @return grizzlyBnb the grizzly BNB reward
+    /// @return furiofiBnb the furiofi BNB reward
     /// @return stablecoinBnb the stalbcoin BNB reward
     function _stakeRewards()
     internal
     returns(
         uint256 totalBnb,
         uint256 standardBnb,
-        uint256 grizzlyBnb,
+        uint256 furiofiBnb,
         uint256 stablecoinBnb
     )
     {
-        // update average honey bnb price
-        AveragePriceOracle.updateHoneyEthPrice();
-        // Get rewards from MasterChef
+        // update average furFiToken bnb price
+        AveragePriceOracle.updateFurFiEthPrice();
 
+        // Get rewards from MasterChef
         uint256 beforeAmount = RewardToken.balanceOf(address(this));
         StakingContract.deposit(PoolID, 0);
         uint256 afterAmount = RewardToken.balanceOf(address(this));
@@ -496,33 +569,33 @@ Initializable,
         );
 
         uint256 totalDeposits = standardStrategyDeposits +
-            grizzlyStrategyDeposits +
+            furiofiStrategyDeposits +
             stablecoinStrategyDeposits;
 
         uint256 standardShare = 0;
-        uint256 grizzlyShare = 0;
+        uint256 furiofiShare = 0;
         if (totalDeposits != 0) {
             standardShare =
                 (bnbAmount * standardStrategyDeposits) /
                 totalDeposits;
-            grizzlyShare =
-                (bnbAmount * grizzlyStrategyDeposits) /
+            furiofiShare =
+                (bnbAmount * furiofiStrategyDeposits) /
                 totalDeposits;
         }
-        uint256 stablecoinShare = bnbAmount - standardShare - grizzlyShare;
+        uint256 stablecoinShare = bnbAmount - standardShare - furiofiShare;
 
         if (standardShare > 100) stakeStandardRewards(standardShare);
-        if (grizzlyShare > 100) stakeGrizzlyRewards(grizzlyShare);
+        if (furiofiShare > 100) stakeFuriofiRewards(furiofiShare);
         if (stablecoinShare > 100) stakeStablecoinRewards(stablecoinShare);
 
         emit StakeRewardsEvent(
             msg.sender,
             bnbAmount,
             standardShare,
-            grizzlyShare,
+            furiofiShare,
             stablecoinShare
         );
-        return (bnbAmount, standardShare, grizzlyShare, stablecoinShare);
+        return (bnbAmount, standardShare, furiofiShare, stablecoinShare);
     }
 
     /// @notice Stakes the rewards for the standard strategy
@@ -532,8 +605,8 @@ Initializable,
         uint256 tokenPairLpShare = (bnbReward * 50) / 100;
         (
             uint256 tokenPairLpAmount,
-                uint256 unusedTokenA,
-                    uint256 unusedTokenB
+            uint256 unusedTokenA,
+            uint256 unusedTokenB
         ) = DEX.convertEthToPairLP{ value: tokenPairLpShare } (address(LPToken));
 
         totalStandardBnbReinvested += tokenPairLpShare;
@@ -546,119 +619,119 @@ Initializable,
         // The TokenA-TokenB LP tokens are staked in the MasterChef
         StakingContract.deposit(PoolID, tokenPairLpAmount);
 
-        // Get the price of Honey relative to BNB
-        uint256 ghnyBnbPrice = AveragePriceOracle.getAverageHoneyForOneEth();
+        // Get the price of FurFiToken relative to BNB
+        uint256 ghnyBnbPrice = AveragePriceOracle.getAverageFurFiForOneEth();
 
-        // If Honey price too low, use buyback strategy
-        if (ghnyBnbPrice > beeEfficiencyLevel) {
-            // 40% of the BNB is used to buy Honey from the DEX
-            uint256 honeyBuybackShare = (bnbReward * 40) / 100;
-            uint256 honeyBuybackAmount = DEX.convertEthToToken{
-                value: honeyBuybackShare
-            } (address(HoneyToken));
+        // If FurFiToken price too low, use buyback strategy
+        if (ghnyBnbPrice > EfficiencyLevel) {
+            // 40% of the BNB is used to buy FurFiToken from the DEX
+            uint256 furFiBuybackShare = (bnbReward * 40) / 100;
+            uint256 furFiBuybackAmount = DEX.convertEthToToken{
+                value: furFiBuybackShare
+            } (address(FurFiToken));
 
-            // 10% of the equivalent amount of Honey (based on Honey-BNB price) is minted
-            (uint256 mintedHoney, uint256 referralHoney) = mintTokens(
+            // 10% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
+            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
                 (bnbReward * 10) / 100,
-                beeEfficiencyLevel,
+                EfficiencyLevel,
                 (1 ether) / 100
             );
 
-            // The purchased and minted Honey is rewarded to the Standard strategy participants
-            standardStrategyRewardHoney(honeyBuybackAmount + mintedHoney);
-            Referral.referralUpdateRewards(referralHoney);
+            // The purchased and minted FurFiToken is rewarded to the Standard strategy participants
+            standardStrategyRewardFurFi(furFiBuybackAmount + mintedFurFi);
+            Referral.referralUpdateRewards(referralFurFi);
 
             // The remaining 10% is transferred to the devs
             _transferEth(
                 DevTeam,
-                bnbReward - tokenPairLpShare - honeyBuybackShare
+                bnbReward - tokenPairLpShare - furFiBuybackShare
             );
         } else {
-            // If Honey price is high, 40% is converted into Honey-BNB LP
-            uint256 honeyBnbLpShare = (bnbReward * 40) / 100;
-            (uint256 honeyBnbLpAmount, , ) = DEX.convertEthToTokenLP{
-                value: honeyBnbLpShare
-            } (address(HoneyToken));
+            // If FurFiToken price is high, 40% is converted into FurFiToken-BNB LP
+            uint256 furFiBnbLpShare = (bnbReward * 40) / 100;
+            (uint256 furFiBnbLpAmount, , ) = DEX.convertEthToTokenLP{
+                value: furFiBnbLpShare
+            } (address(FurFiToken));
 
-            // That Honey-BNB LP is sent as reward to the Staking Pool
-            StakingPool.rewardLP(honeyBnbLpAmount);
+            // That FurFiToken-BNB LP is sent as reward to the Staking Pool
+            StakingPool.rewardLP(furFiBnbLpAmount);
 
-            // 50% of the equivalent amount of Honey (based on Honey-BNB price) is minted
-            (uint256 mintedHoney, uint256 referralHoney) = mintTokens(
+            // 50% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
+            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
                 (bnbReward * 50) / 100,
-                beeEfficiencyLevel,
+                EfficiencyLevel,
                 (1 ether) / 100
             );
 
-            // The minted Honey is rewarded to the Standard strategy participants
-            standardStrategyRewardHoney(mintedHoney);
-            Referral.referralUpdateRewards(referralHoney);
+            // The minted FurFiToken is rewarded to the Standard strategy participants
+            standardStrategyRewardFurFi(mintedFurFi);
+            Referral.referralUpdateRewards(referralFurFi);
 
             // The remaining 10% of BNB is transferred to the devs
             _transferEth(
                 DevTeam,
-                bnbReward - tokenPairLpShare - honeyBnbLpShare
+                bnbReward - tokenPairLpShare - furFiBnbLpShare
             );
         }
     }
 
-    /// @notice Stakes the rewards for the grizzly strategy
+    /// @notice Stakes the rewards for the furiofi strategy
     /// @param bnbReward The pending bnb reward to be restaked
-    function stakeGrizzlyRewards(uint256 bnbReward) internal {
-        // Get the price of Honey relative to BNB
-        uint256 ghnyBnbPrice = AveragePriceOracle.getAverageHoneyForOneEth();
+    function stakeFuriofiRewards(uint256 bnbReward) internal {
+        // Get the price of FurFiToken relative to BNB
+        uint256 ghnyBnbPrice = AveragePriceOracle.getAverageFurFiForOneEth();
 
-        // If Honey price too low, use buyback strategy
-        if (ghnyBnbPrice > beeEfficiencyLevel) {
-            // 90% (50% + 40%) of the BNB is used to buy Honey from the DEX
-            uint256 honeyBuybackShare = (bnbReward * (50 + 40)) / 100;
-            uint256 honeyBuybackAmount = DEX.convertEthToToken{
-                value: honeyBuybackShare
-            } (address(HoneyToken));
+        // If FurFiToken price too low, use buyback strategy
+        if (ghnyBnbPrice > EfficiencyLevel) {
+            // 90% (50% + 40%) of the BNB is used to buy FurFiToken from the DEX
+            uint256 furFiBuybackShare = (bnbReward * (50 + 40)) / 100;
+            uint256 furFiBuybackAmount = DEX.convertEthToToken{
+                value: furFiBuybackShare
+            } (address(FurFiToken));
 
-            // 10% of the equivalent amount of Honey (based on Honey-BNB price) is minted
-            (uint256 mintedHoney, uint256 referralHoney) = mintTokens(
+            // 10% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
+            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
                 (bnbReward * 10) / 100,
-                beeEfficiencyLevel,
+                EfficiencyLevel,
                 (1 ether) / 100
             );
 
-            // The purchased and minted Honey is staked
-            grizzlyStrategyStakeHoney(honeyBuybackAmount + mintedHoney);
-            Referral.referralUpdateRewards(referralHoney);
+            // The purchased and minted FurFiToken is staked
+            furiofiStrategyStakeFurFi(furFiBuybackAmount + mintedFurFi);
+            Referral.referralUpdateRewards(referralFurFi);
 
             // The remaining 6% of BNB is transferred to the devs
-            _transferEth(DevTeam, bnbReward - honeyBuybackShare);
+            _transferEth(DevTeam, bnbReward - furFiBuybackShare);
         } else {
-            // If Honey price is high, 50% of the BNB is used to buy Honey from the DEX
-            uint256 honeyBuybackShare = (bnbReward * 50) / 100;
-            uint256 honeyBuybackAmount = DEX.convertEthToToken{
-                value: honeyBuybackShare
-            } (address(HoneyToken));
+            // If FurFiToken price is high, 50% of the BNB is used to buy FurFiToken from the DEX
+            uint256 furFiBuybackShare = (bnbReward * 50) / 100;
+            uint256 furFiBuybackAmount = DEX.convertEthToToken{
+                value: furFiBuybackShare
+            } (address(FurFiToken));
 
-            // 40% of the BNB is converted into Honey-BNB LP
-            uint256 honeyBnbLpShare = (bnbReward * 40) / 100;
-            (uint256 honeyBnbLpAmount, , ) = DEX.convertEthToTokenLP{
-                value: honeyBnbLpShare
-            } (address(HoneyToken));
-            // The Honey-BNB LP is provided as reward to the Staking Pool
-            StakingPool.rewardLP(honeyBnbLpAmount);
+            // 40% of the BNB is converted into FurFiToken-BNB LP
+            uint256 furFiBnbLpShare = (bnbReward * 40) / 100;
+            (uint256 furFiBnbLpAmount, , ) = DEX.convertEthToTokenLP{
+                value: furFiBnbLpShare
+            } (address(FurFiToken));
+            // The FurFiToken-BNB LP is provided as reward to the Staking Pool
+            StakingPool.rewardLP(furFiBnbLpAmount);
 
-            // 50% of the equivalent amount of Honey (based on Honey-BNB price) is minted
-            (uint256 mintedHoney, uint256 referralHoney) = mintTokens(
+            // 50% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
+            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
                 (bnbReward * 50) / 100,
-                beeEfficiencyLevel,
+                EfficiencyLevel,
                 (1 ether) / 100
             );
 
-            // The purchased and minted Honey is staked
-            grizzlyStrategyStakeHoney(honeyBuybackAmount + mintedHoney);
-            Referral.referralUpdateRewards(referralHoney);
+            // The purchased and minted FurFiToken is staked
+            furiofiStrategyStakeFurFi(furFiBuybackAmount + mintedFurFi);
+            Referral.referralUpdateRewards(referralFurFi);
 
             // The remaining 6% of BNB is transferred to the devs
             _transferEth(
                 DevTeam,
-                bnbReward - honeyBuybackShare - honeyBnbLpShare
+                bnbReward - furFiBuybackShare - furFiBnbLpShare
             );
         }
     }
@@ -686,31 +759,31 @@ Initializable,
     }
 
     /// @notice Mints tokens according to the bee efficiency level
-    /// @param _share The share that should be minted in honey
-    /// @param _beeEfficiencyLevel The bee efficiency level to be uset to convert bnb shares into honey amounts
+    /// @param _share The share that should be minted in furFiToken
+    /// @param _EfficiencyLevel The bee efficiency level to be uset to convert bnb shares into furFiToken amounts
     /// @param _additionalShare The additional share tokens to be minted
-    /// @return tokens The amount minted in honey tokens
+    /// @return tokens The amount minted in furFiToken tokens
     /// @return additionalTokens The additional tokens that were minted
     function mintTokens(
         uint256 _share,
-        uint256 _beeEfficiencyLevel,
+        uint256 _EfficiencyLevel,
         uint256 _additionalShare
     ) internal returns(uint256 tokens, uint256 additionalTokens) {
-        tokens = (_share * _beeEfficiencyLevel) / (1 ether);
+        tokens = (_share * _EfficiencyLevel) / (1 ether);
         additionalTokens = (tokens * _additionalShare) / (1 ether);
 
-        HoneyToken.claimTokens(tokens + additionalTokens);
+        FurFiToken.claimTokens(tokens + additionalTokens);
     }
 
     /// @notice Updates the bee efficiency level
     /// @dev only updater role can perform this function
-    /// @param _newBeeEfficiencyLevel The new bee efficiency level
-    function updateBeeEfficiencyLevel(uint256 _newBeeEfficiencyLevel)
+    /// @param _newEfficiencyLevel The new bee efficiency level
+    function updateEfficiencyLevel(uint256 _newEfficiencyLevel)
     external
     override
     onlyRole(UPDATER_ROLE)
     {
-        beeEfficiencyLevel = _newBeeEfficiencyLevel;
+        EfficiencyLevel = _newEfficiencyLevel;
     }
 
     /// @notice Updates the restake threshold. If the CAKE rewards are bleow this value, stakeRewards() is ignored
@@ -750,9 +823,9 @@ Initializable,
     /// @return deposited - The amount of LP tokens deposited in the current strategy
     /// @return balance - The sum of deposited LP tokens and reinvested amounts
     /// @return totalReinvested - The total amount reinvested, including unclaimed rewards
-    /// @return earnedHoney - The amount of Honey tokens earned
+    /// @return earnedFurFi - The amount of FurFiToken tokens earned
     /// @return earnedBnb - The amount of BNB earned
-    /// @return stakedHoney - The amount of Honey tokens staked in the Staking Pool
+    /// @return stakedFurFi - The amount of FurFiToken tokens staked in the Staking Pool
     function getUpdatedState()
     external
     returns(
@@ -760,25 +833,22 @@ Initializable,
         uint256 deposited,
         uint256 balance,
         uint256 totalReinvested,
-        uint256 earnedHoney,
+        uint256 earnedFurFi,
         uint256 earnedBnb,
-        uint256 stakedHoney
+        uint256 stakedFurFi
     )
     {
         isNotPaused();
         _stakeRewards();
         currentStrategy = userStrategy[msg.sender];
-        if (currentStrategy == Strategy.GRIZZLY) {
-            deposited = getGrizzlyStrategyBalance();
+        if (currentStrategy == Strategy.FURIOFI) {
+            deposited = getFuriofiStrategyBalance();
             balance = deposited;
             totalReinvested = 0;
-            (earnedHoney, earnedBnb) = grizzlyStrategyClaimLP();
-            stakedHoney = getGrizzlyStrategyStakedHoney();
+            (earnedFurFi, earnedBnb) = furiofiStrategyClaimLP();
+            stakedFurFi = getFuriofiStrategyStakedFurFi();
         } else if (currentStrategy == Strategy.STANDARD) {
-            StandardStrategyParticipant
-                memory participantData = getStandardStrategyParticipantData(
-                msg.sender
-            );
+            StandardStrategyParticipant memory participantData = getStandardStrategyParticipantData(msg.sender);
 
             deposited = participantData.amount;
             balance = getStandardStrategyBalance();
@@ -787,14 +857,11 @@ Initializable,
                 balance -
                 deposited;
 
-            earnedHoney = getStandardStrategyHoneyRewards();
+            earnedFurFi = getStandardStrategyFurFiRewards();
             earnedBnb = 0;
-            stakedHoney = 0;
+            stakedFurFi = 0;
         } else if (currentStrategy == Strategy.STABLECOIN) {
-            StablecoinStrategyParticipant
-                memory participantData = getStablecoinStrategyParticipantData(
-                msg.sender
-            );
+            StablecoinStrategyParticipant memory participantData = getStablecoinStrategyParticipantData(msg.sender);
 
             deposited = participantData.amount;
             balance = getStablecoinStrategyBalance();
@@ -803,9 +870,9 @@ Initializable,
                 balance -
                 deposited;
 
-            earnedHoney = 0;
+            earnedFurFi = 0;
             earnedBnb = 0;
-            stakedHoney = 0;
+            stakedFurFi = 0;
         }
     }
 
@@ -814,6 +881,32 @@ Initializable,
     function _transferEth(address to, uint256 amount) internal {
         (bool transferSuccess, ) = payable(to).call{ value: amount } ("");
         require(transferSuccess, "TF");
+    }
+
+    /// @notice Reads out the loan participant data
+    /// @param participant The address of the participant
+    /// @return Participant data
+    function getLoanParticipantData(address participant)
+        public
+        view
+        returns (LoanParticipant memory)
+    {
+        return LoanParticipantData[participant];
+    }
+
+    /// @notice loan the furFiToken token to staker
+    function loan() external override nonReentrant {
+        uint256 loanableAmount = LoanParticipantData[msg.sender].loanableAmount;
+        require(loanableAmount > 0, "Don't exist your loanable amount");
+
+        if(FurFiToken.balanceOf(address(this)) < loanableAmount)
+            FurFiToken.claimTokensWithoutAdditionalTokens(loanableAmount - FurFiToken.balanceOf(address(this)));
+
+        FurFiToken.transfer(msg.sender, loanableAmount);
+        LoanParticipantData[msg.sender].loanableAmount = 0;
+        LoanParticipantData[msg.sender].loanedAmount += loanableAmount;
+        totalLoanedAmount += loanableAmount;
+
     }
 
     uint256[49] private __gap;

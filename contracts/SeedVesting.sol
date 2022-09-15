@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.4;
 
-import "./Interfaces/IHoney.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -18,7 +18,7 @@ contract SeedVesting is Initializable, AccessControlUpgradeable, PausableUpgrade
         uint256 claimed;
     }
 
-    IHoney public HoneyToken;
+    IFurioFinanceToken public FurFiToken;
 
     uint256 public startBlock;
     uint256 public endBlock;
@@ -30,7 +30,7 @@ contract SeedVesting is Initializable, AccessControlUpgradeable, PausableUpgrade
 
     function initialize(
         address _admin,
-        address _honeyTokenAddress,
+        address _furFiTokenAddress,
         uint256 _startBlock,
         uint256 _endBlock
     )
@@ -42,7 +42,7 @@ contract SeedVesting is Initializable, AccessControlUpgradeable, PausableUpgrade
             "Start block must be lower than end block"
         );
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
-        HoneyToken = IHoney(_honeyTokenAddress);
+        FurFiToken = IFurioFinanceToken(_furFiTokenAddress);
         startBlock = _startBlock;
         endBlock = _endBlock;
         __Pausable_init();
@@ -88,8 +88,8 @@ contract SeedVesting is Initializable, AccessControlUpgradeable, PausableUpgrade
         require(claimableAmount > 0, "Nothing to claim");
 
         investorData[msg.sender].claimed += claimableAmount;
-        HoneyToken.claimTokensWithoutAdditionalTokens(claimableAmount);
-        IERC20Upgradeable(address(HoneyToken)).safeTransfer(msg.sender, claimableAmount);
+        FurFiToken.claimTokensWithoutAdditionalTokens(claimableAmount);
+        IERC20Upgradeable(address(FurFiToken)).safeTransfer(msg.sender, claimableAmount);
         emit ClaimedTokens(msg.sender, claimableAmount);
     }
 

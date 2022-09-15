@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./Interfaces/IDEX.sol";
-import "./Interfaces/IHoney.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -10,13 +10,13 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-/// @title Honey-BNB-LP Staking pool
-/// @notice The Honey-BNB-LP staking pool allows investors to deposit Honey-BNB-LP tokens. The investor recieves each block a certain reward in honey tokens. This blockReward can be updated by an account with UPDATER_ROLE.
+/// @title FurioFinance-BNB-LP Staking pool
+/// @notice The FurioFinance-BNB-LP staking pool allows investors to deposit FurioFinance-BNB-LP tokens. The investor recieves each block a certain reward in FurioFinance tokens. This blockReward can be updated by an account with UPDATER_ROLE.
 /// @dev AccessControl from openzeppelin implementation is used to handle the UPDATER_ROLE, which can update the blockReward
 /// User with DEFAULT_ADMIN_ROLE can grant UPDATER_ROLE to any address.
 /// The DEFAULT_ADMIN_ROLE is intended to be a 2 out of 3 multisig wallet in the beginning and then be moved to governance in the future.
-/// The Honey-BNB-LP staking pool uses EIP-1973 to for scalable rewards
-contract HoneyBNBFarm is
+/// The FurioFinance-BNB-LP staking pool uses EIP-1973 to for scalable rewards
+contract FurioFinanceBNBFarm is
     Initializable,
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -39,7 +39,7 @@ contract HoneyBNBFarm is
     uint256 private constant DECIMAL_OFFSET = 10e12;
 
     IDEX public DEX;
-    IHoney public HoneyToken;
+    IFurioFinanceToken public FurioFinanceToken;
     IERC20Upgradeable public LPToken;
 
     uint256 public totalDeposits;
@@ -57,13 +57,13 @@ contract HoneyBNBFarm is
     event ClaimRewards(address indexed _staker, uint256 amount);
 
     function initialize(
-        address _honeyTokenAddress,
+        address _furioFinanceTokenAddress,
         address _lpTokenAddress,
         address _dexAddress,
         address _admin
     ) public initializer {
         roundMask = 1;
-        HoneyToken = IHoney(_honeyTokenAddress);
+        FurioFinanceToken = IFurioFinanceToken(_furioFinanceTokenAddress);
         LPToken = IERC20Upgradeable(_lpTokenAddress);
         DEX = IDEX(_dexAddress);
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
@@ -82,9 +82,9 @@ contract HoneyBNBFarm is
         _unpause();
     }
 
-    /// @notice Stakes the desired amount of Honey-BNB-LP tokens into the pool
+    /// @notice Stakes the desired amount of FurioFinance-BNB-LP tokens into the pool
     /// @dev Executes claimRewards before the staking to get a clean state for the roundMask and the rewards
-    /// @param amount The desired staking amount for an investor in Honey-BNB-LP tokens
+    /// @param amount The desired staking amount for an investor in FurioFinance-BNB-LP tokens
     function stakeLp(uint256 amount) external whenNotPaused {
         require(amount > 0, "Amount must be greater than zero");
 
@@ -105,9 +105,9 @@ contract HoneyBNBFarm is
         emit Stake(msg.sender, amount);
     }
 
-    /// @notice Unstakes the desired amount of Honey-BNB-LP tokens from the pool
+    /// @notice Unstakes the desired amount of FurioFinance-BNB-LP tokens from the pool
     /// @dev Executes claimRewards before the unstaking to get a clean state for the roundMask and the rewards
-    /// @param amount The desired amount to unstake for an investor in Honey-BNB-LP tokens
+    /// @param amount The desired amount to unstake for an investor in FurioFinance-BNB-LP tokens
     function unstakeLp(uint256 amount) external whenNotPaused {
         require(amount > 0, "Amount must be greater than zero");
         require(
@@ -124,7 +124,7 @@ contract HoneyBNBFarm is
         emit Unstake(msg.sender, amount);
     }
 
-    /// @notice Converts the supplied amount of ETH into Honey-BNB-LP tokens, then stakes it into the pool
+    /// @notice Converts the supplied amount of ETH into FurioFinance-BNB-LP tokens, then stakes it into the pool
     /// @dev Executes claimRewards before the staking to get a clean state for the roundMask and the rewards
     function stakeFromEth(
         address[] memory fromToken,
@@ -144,7 +144,7 @@ contract HoneyBNBFarm is
 
         // Convert supplied ETH into LP tokens
         (uint256 amount, uint256 unusedEth, uint256 unusedTokens) = DEX
-            .convertEthToTokenLP{value: msg.value}(address(HoneyToken));
+            .convertEthToTokenLP{value: msg.value}(address(FurioFinanceToken));
 
         // Send back unused ETH
         (bool transferSuccess, ) = payable(msg.sender).call{value: unusedEth}(
@@ -153,7 +153,7 @@ contract HoneyBNBFarm is
         require(transferSuccess, "Failed to transfer unused ETH");
 
         // Send back unused tokens
-        IERC20Upgradeable(address(HoneyToken)).transfer(
+        IERC20Upgradeable(address(FurioFinanceToken)).transfer(
             msg.sender,
             unusedTokens
         );
@@ -165,9 +165,9 @@ contract HoneyBNBFarm is
         emit Stake(msg.sender, amount);
     }
 
-    /// @notice Unstakes the desired amount of Honey-BNB-LP tokens from the pool, then converts it into ETH and sends it back to the caller
+    /// @notice Unstakes the desired amount of FurioFinance-BNB-LP tokens from the pool, then converts it into ETH and sends it back to the caller
     /// @dev Executes claimRewards before the unstaking to get a clean state for the roundMask and the rewards
-    /// @param amount The desired amount to unstake for an investor in Honey-BNB-LP tokens
+    /// @param amount The desired amount to unstake for an investor in FurioFinance-BNB-LP tokens
     function unstakeToEth(
         uint256 amount,
         address[] memory fromToken,
@@ -194,7 +194,7 @@ contract HoneyBNBFarm is
 
         // Convert LP tokens into ETH
         uint256 ethAmount = DEX.convertTokenLpToEth(
-            address(HoneyToken),
+            address(FurioFinanceToken),
             amount
         );
 
@@ -207,10 +207,10 @@ contract HoneyBNBFarm is
         emit Unstake(msg.sender, amount);
     }
 
-    /// @notice Converts the specified amount of the specified token into Honey-BNB-LP tokens, then stakes it into the pool
+    /// @notice Converts the specified amount of the specified token into FurioFinance-BNB-LP tokens, then stakes it into the pool
     /// @dev Executes claimRewards before the staking to get a clean state for the roundMask and the rewards
-    /// @param token the address of the token to be converted into Honey-BNB-LP tokens
-    /// @param tokenAmount the amount of tokens to be converted into Honey-BNB-LP tokens
+    /// @param token the address of the token to be converted into FurioFinance-BNB-LP tokens
+    /// @param tokenAmount the amount of tokens to be converted into FurioFinance-BNB-LP tokens
     function stakeFromToken(
         address token,
         uint256 tokenAmount,
@@ -250,7 +250,7 @@ contract HoneyBNBFarm is
 
         // Convert ETH into LP tokens
         (uint256 amount, uint256 unusedEth, uint256 unusedTokens) = DEX
-            .convertEthToTokenLP{value: ethAmount}(address(HoneyToken));
+            .convertEthToTokenLP{value: ethAmount}(address(FurioFinanceToken));
 
         // Send back unused ETH
         (bool transferSuccess, ) = payable(msg.sender).call{value: unusedEth}(
@@ -259,7 +259,7 @@ contract HoneyBNBFarm is
         require(transferSuccess, "Failed to transfer unused ETH");
 
         // Send back unused tokens
-        IERC20Upgradeable(address(HoneyToken)).transfer(
+        IERC20Upgradeable(address(FurioFinanceToken)).transfer(
             msg.sender,
             unusedTokens
         );
@@ -271,10 +271,10 @@ contract HoneyBNBFarm is
         emit Stake(msg.sender, amount);
     }
 
-    /// @notice Unstakes the desired amount of Honey-BNB-LP tokens from the pool, then converts it into the specified token
+    /// @notice Unstakes the desired amount of FurioFinance-BNB-LP tokens from the pool, then converts it into the specified token
     /// @dev Executes claimRewards before the unstaking to get a clean state for the roundMask and the rewards
-    /// @param token The address of the token into which the Honey-BNB-LP tokens will be converted
-    /// @param amount The desired amount to unstake for an investor in Honey-BNB-LP tokens
+    /// @param token The address of the token into which the FurioFinance-BNB-LP tokens will be converted
+    /// @param amount The desired amount to unstake for an investor in FurioFinance-BNB-LP tokens
     function unstakeToToken(
         address token,
         uint256 amount,
@@ -302,7 +302,7 @@ contract HoneyBNBFarm is
 
         // Convert LP tokens into ETH
         uint256 ethAmount = DEX.convertTokenLpToEth(
-            address(HoneyToken),
+            address(FurioFinanceToken),
             amount
         );
 
@@ -318,7 +318,7 @@ contract HoneyBNBFarm is
     /// @notice Returns the rewards generated in a specific block range
     /// @param fromBlock The starting block (exclusive)
     /// @param toBlock The ending block (inclusive)
-    function getHoneyMintRewardsInRange(uint256 fromBlock, uint256 toBlock)
+    function getFurioFinanceMintRewardsInRange(uint256 fromBlock, uint256 toBlock)
         public
         view
         returns (uint256)
@@ -386,7 +386,7 @@ contract HoneyBNBFarm is
         uint256 currentRoundMask = roundMask;
 
         if (totalDeposits > 0) {
-            uint256 totalPendingRewards = getHoneyMintRewardsInRange(
+            uint256 totalPendingRewards = getFurioFinanceMintRewardsInRange(
                 lastRoundMaskUpdateBlock,
                 block.number
             );
@@ -402,7 +402,7 @@ contract HoneyBNBFarm is
     }
 
     /// @notice Claims the current rewards for an investor
-    /// @dev The round mask is updated in the first place to update the current rewards for the investor. The rewards in honey tokens are then minted and transferred to the investor
+    /// @dev The round mask is updated in the first place to update the current rewards for the investor. The rewards in furioFinance tokens are then minted and transferred to the investor
     function claimRewards() public whenNotPaused {
         updateRoundMask();
 
@@ -418,10 +418,10 @@ contract HoneyBNBFarm is
         participantData[msg.sender].rewardMask = roundMask;
 
         if (rewardsToTransfer > 0) {
-            HoneyToken.claimTokens(rewardsToTransfer);
+            FurioFinanceToken.claimTokens(rewardsToTransfer);
             participantData[msg.sender].claimedTokens += rewardsToTransfer;
 
-            IERC20Upgradeable(address(HoneyToken)).safeTransfer(
+            IERC20Upgradeable(address(FurioFinanceToken)).safeTransfer(
                 msg.sender,
                 rewardsToTransfer
             );
@@ -429,12 +429,12 @@ contract HoneyBNBFarm is
         }
     }
 
-    /// @notice Sets the honey minting transition times and amounts
+    /// @notice Sets the furioFinance minting transition times and amounts
     /// @param _blockRewardPhase1End the block after which Phase 1 ends
     /// @param _blockRewardPhase2Start the block after which Phase 2 starts
     /// @param _blockRewardPhase1Amount the block rewards during Phase 1
     /// @param _blockRewardPhase2Amount the block rewards during Phase 2
-    function setHoneyMintingRewards(
+    function setFurioFinanceMintingRewards(
         uint256 _blockRewardPhase1End,
         uint256 _blockRewardPhase2Start,
         uint256 _blockRewardPhase1Amount,
@@ -460,7 +460,7 @@ contract HoneyBNBFarm is
     function updateRoundMask() internal {
         if (totalDeposits == 0) return;
 
-        uint256 totalPendingRewards = getHoneyMintRewardsInRange(
+        uint256 totalPendingRewards = getFurioFinanceMintRewardsInRange(
             lastRoundMaskUpdateBlock,
             block.number
         );

@@ -2,8 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./Interfaces/IReferral.sol";
-import "./Interfaces/IHoney.sol";
-import "./Interfaces/IFreezer.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -11,10 +10,10 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 /// @title The referral contract
-/// @notice This contract keeps track of the referral balances and their honey rewards. It uses the TokenA-TokenB-LP token from the referral recipient to split up the honey rewards for the referral giver using EIP-1973.
-/// @dev This contract is intended to be called from a Rewarder contract like the Grizzly contract which wants to keep track of the referrals. It is important to note that the Grizzly contract needs to keep track of the deposit of the referral recipient as this contract only considers the sum of all the deposits from referral recipients for a given referral giver.
+/// @notice This contract keeps track of the referral balances and their furFi rewards. It uses the TokenA-TokenB-LP token from the referral recipient to split up the furFi rewards for the referral giver using EIP-1973.
+/// @dev This contract is intended to be called from a Rewarder contract like the Furiofi contract which wants to keep track of the referrals. It is important to note that the Furiofi contract needs to keep track of the deposit of the referral recipient as this contract only considers the sum of all the deposits from referral recipients for a given referral giver.
 contract Referral is
-Initializable,
+    Initializable,
     AccessControlUpgradeable,
     IReferral,
     PausableUpgradeable
@@ -52,22 +51,19 @@ Initializable,
     // (poolAddress) -> (roundMask)
     mapping(address => uint256) private roundMasks;
 
-    IHoney private HoneyToken;
+    IFurioFinanceToken private FurFiToken;
     address private DevTeam;
 
-    IFreezer public Freezer;
-
     function initialize(
-        address _honeyTokenAddress,
+        address _furFiTokenAddress,
         address _admin,
-        address _devTeam,
-        address _freezerAddress
+        address _devTeam
     ) public initializer {
-        HoneyToken = IHoney(_honeyTokenAddress);
+        FurFiToken = IFurioFinanceToken(_furFiTokenAddress);
         DevTeam = _devTeam;
-        Freezer = IFreezer(_freezerAddress);
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         __Pausable_init();
+
     }
 
     /// @notice pause
@@ -186,7 +182,7 @@ Initializable,
         msg.sender
     );
 
-        uint256 _rewardMultiplier = getReferralMultiplier(msg.sender);
+        uint256 _rewardMultiplier = 1;
 
         require(
             _amount <= _currentReferralReward * _rewardMultiplier,
@@ -203,10 +199,10 @@ Initializable,
         referralGivers[_poolAddress][msg.sender].claimedRewards += _amount;
 
         if (_amount - _amount / _rewardMultiplier > 0) {
-            HoneyToken.claimTokens(_amount - _amount / _rewardMultiplier);
+            FurFiToken.claimTokens(_amount - _amount / _rewardMultiplier);
         }
 
-        IERC20Upgradeable(address(HoneyToken)).safeTransfer(
+        IERC20Upgradeable(address(FurFiToken)).safeTransfer(
             msg.sender,
             _amount
         );
@@ -226,7 +222,7 @@ Initializable,
             uint256 _amountToWithdraw = getReferralRewards(
             _poolAddresses[i],
             msg.sender
-        ) * getReferralMultiplier(msg.sender);
+        ) * 1;
             withdrawReferralRewards(_amountToWithdraw, _poolAddresses[i]);
             _totalWithdrawls += _amountToWithdraw;
         }
@@ -235,7 +231,7 @@ Initializable,
 
     /// @notice Rewards the referral contract
     /// @dev Can only be called by a rewarder contract.
-    /// @param _rewardedAmount The amount in honey that was rewarded to the contract
+    /// @param _rewardedAmount The amount in furFi that was rewarded to the contract
     function referralUpdateRewards(uint256 _rewardedAmount)
     external
     override
@@ -243,7 +239,7 @@ Initializable,
     {
         if (totalReferralDeposits[msg.sender] == 0) return;
 
-        IERC20Upgradeable(address(HoneyToken)).safeTransferFrom(
+        IERC20Upgradeable(address(FurFiToken)).safeTransferFrom(
             msg.sender,
             address(this),
             _rewardedAmount
@@ -267,7 +263,7 @@ Initializable,
         uint256 currentReferralRewards = getReferralRewards(
         _poolAddress,
         _referralGiver
-    ) * getReferralMultiplier(_referralGiver);
+    ) * 1;
         uint256 claimedReferralRewards = referralGivers[_poolAddress][
             _referralGiver
         ].claimedRewards;
@@ -290,56 +286,6 @@ Initializable,
         referralGivers[_poolAddress][_referralGiver].rewardMask = roundMasks[
             _poolAddress
         ];
-    }
-
-    /// @notice referral multiplier
-    /// @dev can be upgraded to include logic to add multipliers
-    function getReferralMultiplier(address _referralGiver)
-    internal
-    view
-    returns(uint256)
-    {
-        if (address(Freezer) != address(0)) {
-            return getLevel(_referralGiver);
-        } else {
-            return 1;
-        }
-    }
-
-    function getExpericencePoints(address _from)
-    public
-    view
-    override
-    returns(uint256 points)
-    {
-        return Freezer.freezerPoints(_from);
-    }
-
-    function getLevel(address _from)
-    public
-    view
-    override
-    returns(uint256 level)
-    {
-        uint256 experiencePoints = getExpericencePoints(_from);
-        level = 1;
-        if (experiencePoints >= 60000 ether) {
-            level = 5;
-        } else if (experiencePoints >= 24000 ether) {
-            level = 4;
-        } else if (experiencePoints >= 12000 ether) {
-            level = 3;
-        } else if (experiencePoints >= 3000 ether) {
-            level = 2;
-        }
-    }
-
-    /// @notice sets the experiencepoints address
-    function setFreezer(address _freezerAddress)
-    external
-    onlyRole(UPDATER_ROLE)
-    {
-        Freezer = IFreezer(_freezerAddress);
     }
 
     uint256[49] private __gap;

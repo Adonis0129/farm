@@ -8,8 +8,8 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "../Interfaces/IUniswapV2Pair.sol";
 import "../Interfaces/IAveragePriceOracle.sol";
 
-/// @notice This oracle calculates the average price of the Honey BNB liquidity pool. The time period can be set for the average price window. The larger the price window is set, the riskier it is for an attacker to manipulate the price using e.q. a flash loan attack. However, the larger the price window, the less current the Honey-BNB price
-/// @dev The amount out in Honey for one BNB is the Bee Efficiency Level (BEL).
+/// @notice This oracle calculates the average price of the FurFiToken BNB liquidity pool. The time period can be set for the average price window. The larger the price window is set, the riskier it is for an attacker to manipulate the price using e.q. a flash loan attack. However, the larger the price window, the less current the FurFiToken-BNB price
+/// @dev The amount out in FurFiToken for one BNB is the Bee Efficiency Level (BEL).
 /// @dev Implementation based on (Fixed windows): https://docs.uniswap.org/protocol/V2/guides/smart-contract-integration/building-an-oracle
 contract AveragePriceOracle is
     Initializable,
@@ -22,28 +22,28 @@ contract AveragePriceOracle is
     uint224 constant Q112 = 2 ** 112;
 
     uint256 private blockTimestampLast;
-    uint224 private honeyEthPriceAverage;
-    uint256 private honeyEthCumulativeLast;
-    bool private honeyIsToken0;
+    uint224 private furFiEthPriceAverage;
+    uint256 private furFiEthCumulativeLast;
+    bool private furFiIsToken0;
 
-    IERC20Upgradeable private HoneyToken;
-    IUniswapV2Pair private HoneyBnbLpToken;
+    IERC20Upgradeable private FurFiToken;
+    IUniswapV2Pair private FurFiBnbLpToken;
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     function initialize(
-        address _honeyTokenAddress,
-        address _honeyBnbLpToken,
+        address _furFiTokenAddress,
+        address _furFiBnbLpToken,
         address _admin
     ) public initializer {
         require(
-            IUniswapV2Pair(_honeyBnbLpToken).token0() == _honeyTokenAddress ||
-            IUniswapV2Pair(_honeyBnbLpToken).token1() == _honeyTokenAddress,
+            IUniswapV2Pair(_furFiBnbLpToken).token0() == _furFiTokenAddress ||
+            IUniswapV2Pair(_furFiBnbLpToken).token1() == _furFiTokenAddress,
             "LA"
         );
-        HoneyToken = IERC20Upgradeable(_honeyTokenAddress);
-        HoneyBnbLpToken = IUniswapV2Pair(_honeyBnbLpToken);
-        honeyIsToken0 = HoneyBnbLpToken.token0() == _honeyTokenAddress;
+        FurFiToken = IERC20Upgradeable(_furFiTokenAddress);
+        FurFiBnbLpToken = IUniswapV2Pair(_furFiBnbLpToken);
+        furFiIsToken0 = FurFiBnbLpToken.token0() == _furFiTokenAddress;
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         __Pausable_init();
     }
@@ -60,41 +60,40 @@ contract AveragePriceOracle is
         _unpause();
     }
 
-    /// @notice gets the average amount of Honey Token out for one BNB
+    /// @notice gets the average amount of FurFiToken Token out for one BNB
     /// @dev uses the average price oracle to calculate the price
-    /// @return amountOut the amount out in Honey Token for one BNB
-    function getAverageHoneyForOneEth()
+    /// @return amountOut the amount out in FurFiToken Token for one BNB
+    function getAverageFurFiForOneEth()
     public
     view
     override
     returns(uint256 amountOut)
     {
-        return (honeyEthPriceAverage * 1e18) / Q112;
+        return (furFiEthPriceAverage * 1e18) / Q112;
     }
 
-    /// @notice Updates the average Honey BNB price
+    /// @notice Updates the average FurFiToken BNB price
     /// @dev Needs to be called periodically such that the price updates. Should always be called before the average price is used. The first time called, the values are initialized.
-    function updateHoneyEthPrice() external override whenNotPaused {
+    function updateFurFiEthPrice() external override whenNotPaused {
         (
             uint256 _price0Cumulative,
-                uint256 _price1Cumulative,
-                    uint32 _blockTimestamp
-        ) = currentCumulativePrices(HoneyBnbLpToken);
+            uint256 _price1Cumulative,
+            uint32 _blockTimestamp
+        ) = currentCumulativePrices(FurFiBnbLpToken);
 
         // initialized the first time called
         if (blockTimestampLast == 0) {
             (
                 uint112 _reserve0,
-                    uint112 _reserve1,
-                        uint32 _blockTimestampLast
-            ) = HoneyBnbLpToken.getReserves();
+                uint112 _reserve1,
+            ) = FurFiBnbLpToken.getReserves();
 
-            if (honeyIsToken0) {
-                honeyEthPriceAverage = (Q112 * _reserve0) / _reserve1;
-                honeyEthCumulativeLast = _price1Cumulative;
+            if (furFiIsToken0) {
+                furFiEthPriceAverage = (Q112 * _reserve0) / _reserve1;
+                furFiEthCumulativeLast = _price1Cumulative;
             } else {
-                honeyEthPriceAverage = (Q112 * _reserve1) / _reserve0;
-                honeyEthCumulativeLast = _price0Cumulative;
+                furFiEthPriceAverage = (Q112 * _reserve1) / _reserve0;
+                furFiEthCumulativeLast = _price0Cumulative;
             }
             blockTimestampLast = _blockTimestamp;
             return;
@@ -103,16 +102,16 @@ contract AveragePriceOracle is
         uint256 _timeElapsed = _blockTimestamp - blockTimestampLast;
 
         if (_timeElapsed >= TIME_PERIOD) {
-            if (honeyIsToken0) {
-                honeyEthPriceAverage = uint224(
-                    (_price1Cumulative - honeyEthCumulativeLast) / _timeElapsed
+            if (furFiIsToken0) {
+                furFiEthPriceAverage = uint224(
+                    (_price1Cumulative - furFiEthCumulativeLast) / _timeElapsed
                 );
-                honeyEthCumulativeLast = _price1Cumulative;
+                furFiEthCumulativeLast = _price1Cumulative;
             } else {
-                honeyEthPriceAverage = uint224(
-                    (_price0Cumulative - honeyEthCumulativeLast) / _timeElapsed
+                furFiEthPriceAverage = uint224(
+                    (_price0Cumulative - furFiEthCumulativeLast) / _timeElapsed
                 );
-                honeyEthCumulativeLast = _price0Cumulative;
+                furFiEthCumulativeLast = _price0Cumulative;
             }
             blockTimestampLast = _blockTimestamp;
         }
@@ -146,8 +145,8 @@ contract AveragePriceOracle is
         // if time has elapsed since the last update on the pair, mock the accumulated price values
         (
             uint112 _reserve0,
-                uint112 _reserve1,
-                    uint32 _blockTimestampLast
+            uint112 _reserve1,
+            uint32 _blockTimestampLast
         ) = pair.getReserves();
         if (_blockTimestampLast != _blockTimestamp) {
             uint32 _timeElapsed = _blockTimestamp - _blockTimestampLast;

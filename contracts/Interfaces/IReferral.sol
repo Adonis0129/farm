@@ -30,10 +30,4 @@ returns(uint256);
 
 function referralUpdateRewards(uint256 _rewardedAmount) external;
 
-function getExpericencePoints(address _from)
-external
-view
-returns(uint256 points);
-
-function getLevel(address _from) external view returns(uint256 level);
 }

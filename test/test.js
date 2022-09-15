@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 const EthCrypto = require("eth-crypto");
 const keccak256 = require("keccak256");
-const { delay, toBigNum, fromBigNum } = require("./utils.js");
+const {toBigNum, fromBigNum} = require("./utils.js");
 
 var ERC20ABI = artifacts.readArtifactSync("contracts/Mock/FakeUsdc.sol:IERC20").abi;
 var exchangeRouter;
@@ -28,7 +28,7 @@ let stakingPool;
 let refferal;
 let averagePriceOracle;
 let dex;
-let grizzly;
+let furiofi;
 
 var owner;
 var user1;
@@ -55,7 +55,7 @@ var deployedAddress = {
   refferal: "",
   averagePriceOracle: "",
   dex: "",
-  grizzly: "",
+  furiofi: "",
 };
 
 /** For token deployment
@@ -560,22 +560,24 @@ describe("Pancakeswap evironment building", () => {
 });
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////   House Token and Other contracts Deployment for Farming     /////////////////////
+//////////////   FirFi Token and Other contracts Deployment for Farming     /////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 describe("Contract deployment and setting for farming", () => {
-  it("HouseToken deployment, set role", async () => {
-    Token = await ethers.getContractFactory("HoneyToken");
+  it("FurFiToken deployment, set role", async () => {
+    Token = await ethers.getContractFactory("FurioFinanceToken");
     if (!isOnchain) {
-      token = await upgrades.deployProxy(Token, [
-        "HouseToken",
-        "$HT",
-        toBigNum("1000000", 18),
-        owner.address,
-        "0xC01cbc79644283782BabE262D1C56493d83D6fe2",
-        "0x105F706AB60fcc1F760b1b6cAD331A647272BDCb",
-        "0x56edb7B2AB826B64c26C599C050B909c4d8E1a29",
-        "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
-      ]);
+      token = await upgrades.deployProxy(Token, 
+        [
+          "FurioFinanceToken",
+          "$FURFI",
+          toBigNum("1000000", 18),
+          owner.address,
+          "0xC01cbc79644283782BabE262D1C56493d83D6fe2",
+          "0x105F706AB60fcc1F760b1b6cAD331A647272BDCb",
+          "0x56edb7B2AB826B64c26C599C050B909c4d8E1a29",
+          "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
+        ],
+      );
       await token.deployed();
       //set role
       var tx = await token.grantRole(keccak256("UPDATER_ROLE"), owner.address);
@@ -588,7 +590,7 @@ describe("Contract deployment and setting for farming", () => {
     console.log("token", token.address);
   });
 
-  it("creat BNB-HouseToken pool", async () => {
+  it("creat BNB-FurFiToken pool", async () => {
     if (!isOnchain) {
       var tx = await token.approve(
         exchangeRouter.address,
@@ -643,8 +645,7 @@ describe("Contract deployment and setting for farming", () => {
       refferal = await upgrades.deployProxy(Refferal, [
         token.address,
         owner.address,
-        "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
-        "0x0000000000000000000000000000000000000000",
+        "0x4962B860e02eb883CB02Bd879641f3d637e123fC"
       ]);
       await refferal.deployed();
       //set role
@@ -738,10 +739,10 @@ describe("Contract deployment and setting for farming", () => {
     console.log("dex", dex.address);
   });
 
-  it("(usdc-busd)Grizzly contract deployment and set ", async () => {
-    Grizzly = await ethers.getContractFactory("Grizzly");
+  it("(usdc-busd)Furiofi contract deployment and set ", async () => {
+    Furiofi = await ethers.getContractFactory("Furiofi");
     if (!isOnchain) {
-      grizzly = await upgrades.deployProxy(Grizzly, [
+      furiofi = await upgrades.deployProxy(Furiofi, [
         owner.address,
         masterChefV2.address,
         stakingPool.address,
@@ -753,33 +754,33 @@ describe("Contract deployment and setting for farming", () => {
         dex.address,
         "1",
       ]);
-      await grizzly.deployed();
+      await furiofi.deployed();
       //set role
-      var tx = await grizzly.grantRole(keccak256("UPDATER_ROLE"), owner.address);
+      var tx = await furiofi.grantRole(keccak256("UPDATER_ROLE"), owner.address);
       await tx.wait();
-      var tx = await grizzly.grantRole(keccak256("FUNDS_RECOVERY_ROLE"), owner.address);
+      var tx = await furiofi.grantRole(keccak256("FUNDS_RECOVERY_ROLE"), owner.address);
       await tx.wait();
-      var tx = await grizzly.grantRole(keccak256("PAUSER_ROLE"), owner.address);
+      var tx = await furiofi.grantRole(keccak256("PAUSER_ROLE"), owner.address);
       await tx.wait();
       //set restakeThreshold
-      var tx = await grizzly.updateRestakeThreshold("0");
+      var tx = await furiofi.updateRestakeThreshold("0");
       await tx.wait();
     } else {
-      grizzly = Grizzly.attach(deployedAddress.grizzly);
+      furiofi = Furiofi.attach(deployedAddress.furiofi);
     }
-    console.log("grizzly", grizzly.address);
+    console.log("furiofi", furiofi.address);
   });
 
-  it("set role for (usdc-busd)Grizzly ", async () => {
+  it("set role for (usdc-busd)Furiofi ", async () => {
     if (!isOnchain) {
-      // HoneyToken
-      var tx = await token.grantRole(keccak256("MINTER_ROLE"), grizzly.address);
+      // FurioFinanceToken
+      var tx = await token.grantRole(keccak256("MINTER_ROLE"), furiofi.address);
       await tx.wait();
       //Staking Pool
-      var tx = await stakingPool.grantRole(keccak256("REWARDER_ROLE"), grizzly.address);
+      var tx = await stakingPool.grantRole(keccak256("REWARDER_ROLE"), furiofi.address);
       await tx.wait();
       //Referral
-      var tx = await refferal.grantRole(keccak256("REWARDER_ROLE"), grizzly.address);
+      var tx = await refferal.grantRole(keccak256("REWARDER_ROLE"), furiofi.address);
       await tx.wait();
     }
   });
@@ -790,12 +791,12 @@ describe("Contract deployment and setting for farming", () => {
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 describe("test", () => {
-  it("user1 deposit with 2 BNB and 5% slippage to (usdc-busd)Grizzly ", async () => {
+  it("user1 deposit with 2 BNB and 5% slippage to (usdc-busd)Furiofi ", async () => {
     if (!isOnchain) {
       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
       // console.log("current timestamp", currentTimeStamp);
 
-      var tx = await grizzly.connect(user1).deposit(
+      var tx = await furiofi.connect(user1).deposit(
           user6.address,
           [wBNB.address, wBNB.address],
           [fakeUSDC.address, fakeBUSD.address],
@@ -809,10 +810,10 @@ describe("test", () => {
     }
   });
 
-  it("user2 deposit with 5 BNB and 5% slippage to (usdc-busd)Grizzly ", async () => {
+  it("user2 deposit with 5 BNB and 5% slippage to (usdc-busd)Furiofi ", async () => {
     if (!isOnchain) {
       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-      var tx = await grizzly.connect(user2).deposit(
+      var tx = await furiofi.connect(user2).deposit(
           user6.address,
           [wBNB.address, wBNB.address],
           [fakeUSDC.address, fakeBUSD.address],
@@ -829,11 +830,11 @@ describe("test", () => {
     }
   });
 
-  it("user1 change strategy from standard to grizzly", async () => {
+  it("user1 change strategy from standard to furiofi", async () => {
     if (!isOnchain) {
       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
       // console.log("current timestamp", currentTimeStamp);
-      var tx = await grizzly.connect(user1).changeStrategy(
+      var tx = await furiofi.connect(user1).changeStrategy(
           2,
           [wBNB.address, wBNB.address],
           [fakeUSDC.address, fakeBUSD.address],
@@ -846,15 +847,15 @@ describe("test", () => {
     }
   });
 
-  it("user3 deposit with 300 USDC and 5% slippage to (usdc-busd)Grizzly ", async () => {
+  it("user3 deposit with 300 USDC and 5% slippage to (usdc-busd)Furiofi ", async () => {
     if (!isOnchain) {
       var tx = await fakeUSDC.transfer(user3.address, toBigNum("300", 18));
       await tx.wait();
-      var tx = await fakeUSDC.connect(user3).approve(grizzly.address, toBigNum("300", 18));
+      var tx = await fakeUSDC.connect(user3).approve(furiofi.address, toBigNum("300", 18));
       await tx.wait();
 
       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-      var tx = await grizzly.connect(user3).depositFromToken(
+      var tx = await furiofi.connect(user3).depositFromToken(
           fakeUSDC.address,
           toBigNum("300", 18),
           user5.address,
@@ -869,22 +870,22 @@ describe("test", () => {
     }
   });
 
-  it("user1 grizzly Strategy claim house token", async () => {
+  it("user1 furiofi Strategy claim furFi token", async () => {
     if (!isOnchain) {
-      var tx = await grizzly.connect(user1).grizzlyStrategyClaimHoney();
+      var tx = await furiofi.connect(user1).furiofiStrategyClaimFurFi();
       await tx.wait();
     }
   });
 
-  it("user1 deposit with 1000 DAI and 10% slippage to (usdc-busd)Grizzly ", async () => {
+  it("user1 deposit with 1000 DAI and 10% slippage to (usdc-busd)Furiofi ", async () => {
     if (!isOnchain) {
       var tx = await fakeDAI.transfer(user1.address, toBigNum("1000", 18));
       await tx.wait();
-      var tx = await fakeDAI.connect(user1).approve(grizzly.address, toBigNum("1000", 18));
+      var tx = await fakeDAI.connect(user1).approve(furiofi.address, toBigNum("1000", 18));
       await tx.wait();
 
       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-      var tx = await grizzly.connect(user1).depositFromToken(
+      var tx = await furiofi.connect(user1).depositFromToken(
           fakeDAI.address,
           toBigNum("1000", 18),
           user4.address,

@@ -106,7 +106,6 @@ module.exports = {
       accounts: accounts,
       gasMultiplier: 3,
       timeout: 600000,
-      // addressBook: process.env.RINKEBY_ADDRESS_BOOK || '',
     },
     bsctestnet: {
       url: process.env.BSC_TESTNET_RPC_URL || "",
