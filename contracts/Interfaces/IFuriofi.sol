@@ -2,11 +2,6 @@
 pragma solidity ^0.8.4;
 
 interface IFuriofi {
-    enum Strategy {
-    STANDARD,
-    FURIOFI,
-    STABLECOIN
-}
 
 function deposit(
     address referralGiver,
@@ -59,16 +54,6 @@ function withdrawToToken(
     uint256 slippage,
     uint256 deadline
 ) external returns(uint256);
-
-function changeStrategy(
-    Strategy toStrategy,
-    address[] memory fromToken,
-    address[] memory toToken,
-    uint256[] memory amountIn,
-    uint256[] memory amountOut,
-    uint256 slippage,
-    uint256 deadline
-) external;
 
 function stakeRewards(
     address[] memory fromToken,
