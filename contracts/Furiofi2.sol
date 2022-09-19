@@ -1,33 +1,236 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.4;
 
-import "./DEX.sol";
-import "./Strategy/FuriofiStrategy.sol";
-import "./Strategy/StableCoinStrategy.sol";
-import "./Strategy/StandardStrategy.sol";
-import "./Config/BaseConfig.sol";
-import "./Interfaces/IFuriofi.sol";
-import "./Oracle/AveragePriceOracle.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-/// @title The Furiofi contract
+import "./Interfaces/IMasterChef.sol";
+import "./Interfaces/IUniswapV2Router01.sol";
+import "./Interfaces/IUniswapV2Pair.sol";
+import "./Interfaces/IStakingPool.sol";
+import "./Interfaces/IFurioFinanceToken.sol";
+import "./Interfaces/IReferral.sol";
+import "./Interfaces/IAveragePriceOracle.sol";
+import "./Interfaces/IDEX.sol";
+import "./Interfaces/IERC20.sol";
+import "./Interfaces/IFuriofi.sol";
+
+interface IFurFiToken is IFurioFinanceToken, IERC20{}
+
+/// @title Base config for furiofi contract
+/// @notice This contract contains all external addresses and dependencies for the furiofi contract. It also approves dependent contracts to spend tokens on behalf of furiofi.sol
+/// @dev The contract furiofi.sol inherits this contract to have all dependencies available. This contract is always inherited and never deployed alone
+abstract contract BaseConfig is
+    AccessControlUpgradeable,
+    PausableUpgradeable
+{
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+    // the role that allows updating parameters
+    bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
+    bytes32 public constant FUNDS_RECOVERY_ROLE = keccak256("FUNDS_RECOVERY_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+    uint256 public constant MAX_PERCENTAGE = 100000;
+    uint256 public constant DECIMAL_OFFSET = 10e12;
+
+    IUniswapV2Pair public LPToken;
+    IMasterChef public StakingContract;
+    IStakingPool public StakingPool;
+    IFurFiToken public FurFiToken;
+    IERC20Upgradeable public FurFiBnbLpToken;
+    IERC20Upgradeable public RewardToken;
+    IERC20Upgradeable public TokenA;
+    IERC20Upgradeable public TokenB;
+    IReferral public Referral;
+    IAveragePriceOracle public AveragePriceOracle;
+    IDEX public DEX;
+    uint256 public PoolID;
+    address public DevTeam;
+
+    function __BaseConfig_init(
+        address _Admin,
+        address _StakingContractAddress,
+        address _StakingPoolAddress,
+        address _FurFiTokenAddress,
+        address _FurFiBnbLpTokenAddress,
+        address _DevTeamAddress,
+        address _ReferralAddress,
+        address _AveragePriceOracleAddress,
+        address _DEXAddress,
+        uint256 _PoolID
+    ) internal {
+        _grantRole(DEFAULT_ADMIN_ROLE, _Admin);
+
+        StakingContract = IMasterChef(_StakingContractAddress);
+        StakingPool = IStakingPool(_StakingPoolAddress);
+        FurFiToken = IFurFiToken(_FurFiTokenAddress);
+        FurFiBnbLpToken = IERC20Upgradeable(_FurFiBnbLpTokenAddress);
+        Referral = IReferral(_ReferralAddress);
+        AveragePriceOracle = IAveragePriceOracle(_AveragePriceOracleAddress);
+        DEX = IDEX(_DEXAddress);
+
+        DevTeam = _DevTeamAddress;
+        PoolID = _PoolID;
+
+        address lpToken = StakingContract.lpToken(PoolID);
+
+        LPToken = IUniswapV2Pair(lpToken);
+
+        TokenA = IERC20Upgradeable(LPToken.token0());
+
+        TokenB = IERC20Upgradeable(LPToken.token1());
+
+        RewardToken = IERC20Upgradeable(StakingContract.CAKE());
+
+        IERC20Upgradeable(address(LPToken)).safeApprove(
+            address(StakingContract),
+            type(uint256).max
+        );
+
+        IERC20Upgradeable(address(RewardToken)).safeApprove(
+            address(DEX),
+            type(uint256).max
+        );
+
+        IERC20Upgradeable(address(LPToken)).safeApprove(
+            address(DEX),
+            type(uint256).max
+        );
+
+        IERC20Upgradeable(address(FurFiToken)).safeApprove(
+            address(StakingPool),
+            type(uint256).max
+        );
+        IERC20Upgradeable(address(FurFiToken)).safeApprove(
+            address(Referral),
+            type(uint256).max
+        );
+        IERC20Upgradeable(address(FurFiBnbLpToken)).safeApprove(
+            address(StakingPool),
+            type(uint256).max
+        );
+    }
+
+    function isNotPaused() internal view {
+        require(!paused(), "PS");
+    }
+
+    function isPaused() internal view {
+        require(paused(), "NP");
+    }
+
+}
+
+/// @title Stablecoin strategy handler
+/// @notice The contract keeps track of the balances of stablecoin strategy investors and their reinvests (rewards) using EIP-1973
+/// @dev This contract is abstract and is intended to be inherited by furiofi.sol. State change functions are all internal which are called by other contracts functions
+abstract contract StableCoinStrategy is Initializable, BaseConfig {
+    struct StablecoinStrategyParticipant {
+        uint256 amount;
+        uint256 rewardMask;
+        uint256 totalReinvested;
+    }
+
+    uint256 public stablecoinStrategyDeposits;
+    uint256 private roundMask;
+
+    mapping(address => StablecoinStrategyParticipant) private participantData;
+
+    function __StableCoinStrategy_init() internal initializer {
+        roundMask = 1;
+    }
+
+    /// @notice Deposits the desired amount for a stablecoin strategy investor
+    /// @dev The current round mask for rewards is updated before the deposit to have a clean state
+    /// @param amount The desired deposit amount for an investor
+    function stablecoinStrategyDeposit(uint256 amount) internal {
+        uint256 currentBalance = getStablecoinStrategyBalance();
+        uint256 currentAmount = participantData[msg.sender].amount;
+
+        participantData[msg.sender].rewardMask = roundMask;
+        participantData[msg.sender].amount = currentBalance + amount;
+        participantData[msg.sender].totalReinvested +=
+            currentBalance -
+            currentAmount;
+
+        stablecoinStrategyDeposits += currentBalance - currentAmount + amount;
+    }
+
+    /// @notice Withdraws the desired amount for a stablecoin strategy investor
+    /// @dev The current round mask for rewards is updated before the deposit to have a clean state
+    /// @param amount The desired withdraw amount for an investor
+    function stablecoinStrategyWithdraw(uint256 amount) internal {
+        require(amount > 0, "TZ");
+
+        uint256 currentBalance = getStablecoinStrategyBalance();
+        require(amount <= currentBalance, "SD");
+
+        uint256 currentAmount = participantData[msg.sender].amount;
+        participantData[msg.sender].rewardMask = roundMask;
+        participantData[msg.sender].amount = currentBalance - amount;
+        participantData[msg.sender].totalReinvested +=
+            currentBalance -
+            currentAmount;
+
+        stablecoinStrategyDeposits =
+            stablecoinStrategyDeposits +
+            currentBalance -
+            currentAmount -
+            amount;
+    }
+
+    /// @notice Gets the current stablecoin balance for an investor. Rewards are included too
+    /// @dev Pending rewards are calculated through the difference between the current round mask and the investors rewardMask according to EIP-1973
+    /// @return Current stablecoin balance
+    function getStablecoinStrategyBalance() public view returns(uint256) {
+        if (participantData[msg.sender].rewardMask == 0) return 0;
+
+        return
+        participantData[msg.sender].amount +
+            ((roundMask - participantData[msg.sender].rewardMask) *
+                participantData[msg.sender].amount) /
+            DECIMAL_OFFSET;
+    }
+
+    /// @notice Adds rewards to the contract
+    /// @dev The roundmask is increased by the share of the rewarded amount such that investors get their share of pending rewards
+    /// @param rewardedAmount The amount to be rewarded
+    function stablecoinStrategyUpdateRewards(uint256 rewardedAmount) internal {
+        if (stablecoinStrategyDeposits == 0) return;
+
+        roundMask +=
+            (DECIMAL_OFFSET * rewardedAmount) /
+            stablecoinStrategyDeposits;
+    }
+
+    /// @notice Reads out the participant data
+    /// @param participant The address of the participant
+    /// @return Participant data
+    function getStablecoinStrategyParticipantData(address participant)
+    public
+    view
+    returns(StablecoinStrategyParticipant memory)
+    {
+        return participantData[participant];
+    }
+
+}
+
+/// @title The StableCoin Strategy Furio Finance contract
 /// @notice This contract put together all abstract contracts and is deployed once for each token pair (hive). It allows the user to deposit and withdraw funds to the predefined hive. In addition, rewards can be staked using stakeReward.
 /// @dev AccessControl from openzeppelin implementation is used to handle the update of the beeEfficiency level.
 /// User with DEFAULT_ADMIN_ROLE can grant UPDATER_ROLE to any address.
 /// The DEFAULT_ADMIN_ROLE is intended to be a 2 out of 3 multisig wallet in the beginning and then be moved to governance in the future.
 /// The Contract uses ReentrancyGuard from openzeppelin for all transactions that transfer bnbs to the msg.sender
-contract Furiofi is
+contract SCStrategyFurioFinance is
     Initializable,
     BaseConfig,
-    FuriofiStrategy,
     StableCoinStrategy,
-    StandardStrategy,
-    ReentrancyGuardUpgradeable,
-    IFuriofi
+    ReentrancyGuardUpgradeable
 {
     receive() external payable { }
 
@@ -57,17 +260,10 @@ contract Furiofi is
             _DEXAddress,
             _PoolID
         );
-        __StandardStrategy_init();
-        __FuriofiStrategy_init();
         __StableCoinStrategy_init();
         __Pausable_init();
-
-        EfficiencyLevel = 500 ether;
     }
 
-    uint256 public EfficiencyLevel;
-
-    mapping(address => Strategy) public userStrategy;
     uint256 public totalUnusedTokenA;
     uint256 public totalUnusedTokenB;
     uint256 public totalRewardsClaimed;
@@ -80,33 +276,27 @@ contract Furiofi is
     uint256 public restakeThreshold;
 
     struct LoanParticipant {
-        uint256 loanableAmount; // loanable furFiToken token amount
-        uint256 loanedAmount; // loaned furFiToken token amount
+        uint256 loanableAmount; // loanable furFiToken amount
+        uint256 loanedAmount; // loaned furFiToken amount
     }
     uint256 totalLoanedAmount;
     mapping(address => LoanParticipant) private LoanParticipantData;
 
     event DepositEvent(
         address indexed user,
-        uint256 lpAmount,
-        Strategy indexed currentStrategy
+        uint256 lpAmount
     );
     event WithdrawEvent(
         address indexed user,
-        uint256 lpAmount,
-        Strategy indexed currentStrategy
-    );
-    event SwitchStrategyEvent(
-        address indexed user,
-        Strategy indexed fromStrategy,
-        Strategy indexed toStrategy
+        uint256 lpAmount
     );
     event StakeRewardsEvent(
         address indexed caller,
-        uint256 bnbAmount,
-        uint256 standardShare,
-        uint256 furiofiShare,
-        uint256 stablecoinShare
+        uint256 bnbAmount
+    );
+    event LoanEvent(
+        address indexed user,
+        uint256 furFiAmount
     );
 
     /// @notice pause
@@ -141,16 +331,14 @@ contract Furiofi is
         uint256[] memory amountOut,
         uint256 slippage,
         uint256 deadline
-    ) external payable override nonReentrant returns(uint256) {
+    ) external payable nonReentrant returns(uint256) {
         isNotPaused();
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
 
         //send 3% of bnb to devTeam
-        (bool transferSuccess, ) = payable(DevTeam).call{ value: msg.value * 30 / 1000 } ("");
-        require(transferSuccess, "TF");
-
-        // set loanable amount
+        _transferEth(DevTeam, msg.value * 30 / 1000);
+        //set loanable amount
         AveragePriceOracle.updateFurFiEthPrice();
         uint256 furFiAmountPerBNB =  AveragePriceOracle.getAverageFurFiForOneEth();
         LoanParticipantData[msg.sender].loanableAmount = msg.value * 970 / 1000 * furFiAmountPerBNB;
@@ -180,7 +368,7 @@ contract Furiofi is
         uint256[] memory amountOut,
         uint256 slippage,
         uint256 deadline
-    ) external override nonReentrant returns(uint256) {
+    ) external nonReentrant returns(uint256) {
         isNotPaused();
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
@@ -192,9 +380,7 @@ contract Furiofi is
         uint256 amountConverted = DEX.convertTokenToEth(amount, token);
 
         //send 3% of bnb to devTeam
-        (bool transferSuccess, ) = payable(DevTeam).call{ value: amountConverted * 30 / 1000 } ("");
-        require(transferSuccess, "TF");
-
+        _transferEth(DevTeam, amountConverted * 30 / 1000);
         // set loanable amount
         AveragePriceOracle.updateFurFiEthPrice();
         uint256 furFiAmountPerBNB =  AveragePriceOracle.getAverageFurFiForOneEth();
@@ -221,29 +407,20 @@ contract Furiofi is
         uint256[] memory amountOut,
         uint256 slippage,
         uint256 deadline
-    ) external override nonReentrant returns(uint256) {
+    ) external nonReentrant returns(uint256) {
         isNotPaused();
-
-        //repayment some loaned token
-        if(LoanParticipantData[msg.sender].loanedAmount > 0)
-        {
-            uint256 stakingAmount;
-            if (userStrategy[msg.sender] == Strategy.STANDARD) {
-                stakingAmount = getStandardStrategyBalance();
-            } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
-                stakingAmount = getFuriofiStrategyBalance();
-            } else {
-                stakingAmount = getStablecoinStrategyBalance();
-            }
-
-            uint256 repaymentAmount = LoanParticipantData[msg.sender].loanedAmount * amount / stakingAmount;
-            require(FurFiToken.balanceOf(msg.sender) >= repaymentAmount);
-            FurFiToken.transferFrom(msg.sender, address(this), repaymentAmount);
-            LoanParticipantData[msg.sender].loanedAmount -= repaymentAmount;
-        }
-
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
+
+        uint256 repayalAmount = getRepayalAmount(amount);
+        //repayment some loaned token
+        if(repayalAmount > 0)
+        {
+            require(FurFiToken.balanceOf(msg.sender) >= repayalAmount);
+            FurFiToken.transferFrom(msg.sender, address(this), repayalAmount);
+            LoanParticipantData[msg.sender].loanedAmount -= repayalAmount;
+        }
+
         _stakeRewards();
         uint256 amountWithdrawn = _withdraw(amount);
         _transferEth(msg.sender, amountWithdrawn);
@@ -266,8 +443,10 @@ contract Furiofi is
         uint256[] memory amountOut,
         uint256 slippage,
         uint256 deadline
-    ) external override nonReentrant returns(uint256) {
+    ) external nonReentrant returns(uint256) {
         isNotPaused();
+        require(deadline > block.timestamp, "DE");
+        DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
 
         //repayment all loaned token
         if(LoanParticipantData[msg.sender].loanedAmount > 0)
@@ -278,19 +457,8 @@ contract Furiofi is
             LoanParticipantData[msg.sender].loanedAmount = 0;
         }
 
-        require(deadline > block.timestamp, "DE");
-        DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
         _stakeRewards();
-        uint256 currentDeposits = 0;
-
-        if (userStrategy[msg.sender] == Strategy.STANDARD) {
-            currentDeposits = getStandardStrategyBalance();
-        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
-            currentDeposits = getFuriofiStrategyBalance();
-        } else {
-            currentDeposits = getStablecoinStrategyBalance();
-        }
-
+        uint256 currentDeposits = getStablecoinStrategyBalance();
         uint256 amountWithdrawn = 0;
         if (currentDeposits > 0) {
             amountWithdrawn = _withdraw(currentDeposits);
@@ -319,29 +487,20 @@ contract Furiofi is
         uint256[] memory amountOut,
         uint256 slippage,
         uint256 deadline
-    ) external override nonReentrant returns(uint256) {
+    ) external nonReentrant returns(uint256) {
         isNotPaused();
-
-        //repayment some loaned token
-        if(LoanParticipantData[msg.sender].loanedAmount > 0)
-        {
-            uint256 stakingAmount;
-            if (userStrategy[msg.sender] == Strategy.STANDARD) {
-                stakingAmount = getStandardStrategyBalance();
-            } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
-                stakingAmount = getFuriofiStrategyBalance();
-            } else {
-                stakingAmount = getStablecoinStrategyBalance();
-            }
-
-            uint256 repaymentAmount = LoanParticipantData[msg.sender].loanedAmount * amount / stakingAmount;
-            require(FurFiToken.balanceOf(msg.sender) >= repaymentAmount);
-            FurFiToken.transferFrom(msg.sender, address(this), repaymentAmount);
-            LoanParticipantData[msg.sender].loanedAmount -= repaymentAmount;
-        }
-
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
+
+        uint256 repayalAmount = getRepayalAmount(amount);
+        //repayment some loaned token
+        if(repayalAmount > 0)
+        {
+            require(FurFiToken.balanceOf(msg.sender) >= repayalAmount);
+            FurFiToken.transferFrom(msg.sender, address(this), repayalAmount);
+            LoanParticipantData[msg.sender].loanedAmount -= repayalAmount;
+        }
+
         _stakeRewards();
         uint256 amountWithdrawn = _withdraw(amount);
         uint256 tokenAmountWithdrawn = DEX.convertEthToToken{
@@ -388,18 +547,11 @@ contract Furiofi is
             }
         }
 
-        if (userStrategy[msg.sender] == Strategy.STANDARD) {
-            standardStrategyDeposit(lpValue);
-        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
-            furiofiStrategyDeposit(lpValue);
-        } else {
-            stablecoinStrategyDeposit(lpValue);
-        }
-
+        stablecoinStrategyDeposit(lpValue);
         StakingContract.deposit(PoolID, lpValue);
 
         Referral.referralDeposit(lpValue, msg.sender, referralGiver);
-        emit DepositEvent(msg.sender, lpValue, userStrategy[msg.sender]);
+        emit DepositEvent(msg.sender, lpValue);
         return lpValue;
     }
 
@@ -408,86 +560,15 @@ contract Furiofi is
     /// @param amount The amount of bnb to be withdrawn
     /// @return Amount to be withdrawn
     function _withdraw(uint256 amount) internal returns(uint256) {
-        if (userStrategy[msg.sender] == Strategy.STANDARD) {
-            standardStrategyWithdraw(amount);
-            standardStrategyClaimFurFi();
-        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
-            furiofiStrategyWithdraw(amount);
-            furiofiStrategyClaimFurFi();
-            furiofiStrategyClaimLP();
-        } else {
-            stablecoinStrategyWithdraw(amount);
-        }
 
+        stablecoinStrategyWithdraw(amount);
         StakingContract.withdraw(PoolID, amount);
 
         uint256 bnbAmount = DEX.convertPairLpToEth(address(LPToken), amount);
 
         Referral.referralWithdraw(amount, msg.sender);
-        emit WithdrawEvent(msg.sender, amount, userStrategy[msg.sender]);
+        emit WithdrawEvent(msg.sender, amount);
         return bnbAmount;
-    }
-
-    /// @notice Change the strategy of a user
-    /// @dev When changing the strategy, the amount is withdrawn from the current strategy and deposited into the new strategy
-    /// @param toStrategy the strategy the user wants to change to
-    /// @param fromToken The list of token addresses from which the conversion is done
-    /// @param toToken The list of token addresses to which the conversion is done
-    /// @param amountIn The list of quoted input amounts
-    /// @param amountOut The list of output amounts for each quoted input amount
-    /// @param slippage The allowed slippage
-    /// @param deadline The deadline for the transaction
-    function changeStrategy(
-        Strategy toStrategy,
-        address[] memory fromToken,
-        address[] memory toToken,
-        uint256[] memory amountIn,
-        uint256[] memory amountOut,
-        uint256 slippage,
-        uint256 deadline
-    ) external override nonReentrant {
-        isNotPaused();
-        require(deadline > block.timestamp, "DE");
-        require(userStrategy[msg.sender] != toStrategy, "UA");
-        DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
-
-        _stakeRewards();
-        uint256 currentDeposits = 0;
-
-        if (userStrategy[msg.sender] == Strategy.STANDARD) {
-            currentDeposits = getStandardStrategyBalance();
-            if (currentDeposits > 0) {
-                standardStrategyWithdraw(currentDeposits);
-                standardStrategyClaimFurFi();
-            }
-        } else if (userStrategy[msg.sender] == Strategy.FURIOFI) {
-            currentDeposits = getFuriofiStrategyBalance();
-            if (currentDeposits > 0) {
-                furiofiStrategyWithdraw(currentDeposits);
-                furiofiStrategyClaimFurFi();
-                furiofiStrategyClaimLP();
-            }
-        } else {
-            currentDeposits = getStablecoinStrategyBalance();
-            if (currentDeposits > 0) {
-                stablecoinStrategyWithdraw(currentDeposits);
-            }
-        }
-
-        if (currentDeposits > 0) {
-            if (toStrategy == Strategy.STANDARD)
-                standardStrategyDeposit(currentDeposits);
-            else if (toStrategy == Strategy.FURIOFI)
-                furiofiStrategyDeposit(currentDeposits);
-            else stablecoinStrategyDeposit(currentDeposits);
-        }
-
-        emit SwitchStrategyEvent(
-            msg.sender,
-            userStrategy[msg.sender],
-            toStrategy
-        );
-        userStrategy[msg.sender] = toStrategy;
     }
 
     /// @notice Stake rewards public function
@@ -498,10 +579,7 @@ contract Furiofi is
     /// @param amountOut The list of output amounts for each quoted input amount
     /// @param slippage The allowed slippage
     /// @param deadline The deadline for the transaction
-    /// @return totalBnb The total BNB reward
-    /// @return standardBnb the standard BNB reward
-    /// @return furiofiBnb the furiofi BNB reward
-    /// @return stablecoinBnb the stalbcoin BNB reward
+    /// @return bnbAmount The BNB reward
     function stakeRewards(
         address[] memory fromToken,
         address[] memory toToken,
@@ -511,14 +589,8 @@ contract Furiofi is
         uint256 deadline
     )
     external
-    override
     nonReentrant
-    returns(
-        uint256 totalBnb,
-        uint256 standardBnb,
-        uint256 furiofiBnb,
-        uint256 stablecoinBnb
-    )
+    returns(uint256 bnbAmount)
     {
         isNotPaused();
         require(deadline > block.timestamp, "DE");
@@ -529,18 +601,10 @@ contract Furiofi is
     /// @notice The actual internal stake rewards function
     /// @dev Executes the actual restaking of the rewards. Gets the current rewards from masterchef and divides the reward into the different strategies.
     /// Then executes the stakereward for the strategies. StakingContract.deposit(PoolID, 0); is executed in order to update the balance of the reward token
-    /// @return totalBnb The total BNB reward
-    /// @return standardBnb the standard BNB reward
-    /// @return furiofiBnb the furiofi BNB reward
-    /// @return stablecoinBnb the stalbcoin BNB reward
+    /// @return amount The BNB reward
     function _stakeRewards()
     internal
-    returns(
-        uint256 totalBnb,
-        uint256 standardBnb,
-        uint256 furiofiBnb,
-        uint256 stablecoinBnb
-    )
+    returns(uint256 amount)
     {
         // update average furFiToken bnb price
         AveragePriceOracle.updateFurFiEthPrice();
@@ -550,7 +614,7 @@ contract Furiofi is
         StakingContract.deposit(PoolID, 0);
         uint256 afterAmount = RewardToken.balanceOf(address(this));
         uint256 currentRewards = afterAmount - beforeAmount;
-        if (currentRewards <= restakeThreshold) return (0, 0, 0, 0);
+        if (currentRewards <= restakeThreshold) return 0;
 
         // Store rewards for APY calculation
         lastStakeRewardsDuration = block.timestamp - lastStakeRewardsCall;
@@ -568,179 +632,17 @@ contract Furiofi is
             address(RewardToken)
         );
 
-        uint256 totalDeposits = standardStrategyDeposits +
-            furiofiStrategyDeposits +
-            stablecoinStrategyDeposits;
+        if (stablecoinStrategyDeposits > 0 && bnbAmount > 0) stakeStablecoinRewards(bnbAmount);
 
-        uint256 standardShare = 0;
-        uint256 furiofiShare = 0;
-        if (totalDeposits != 0) {
-            standardShare =
-                (bnbAmount * standardStrategyDeposits) /
-                totalDeposits;
-            furiofiShare =
-                (bnbAmount * furiofiStrategyDeposits) /
-                totalDeposits;
-        }
-        uint256 stablecoinShare = bnbAmount - standardShare - furiofiShare;
-
-        if (standardShare > 100) stakeStandardRewards(standardShare);
-        if (furiofiShare > 100) stakeFuriofiRewards(furiofiShare);
-        if (stablecoinShare > 100) stakeStablecoinRewards(stablecoinShare);
-
-        emit StakeRewardsEvent(
-            msg.sender,
-            bnbAmount,
-            standardShare,
-            furiofiShare,
-            stablecoinShare
-        );
-        return (bnbAmount, standardShare, furiofiShare, stablecoinShare);
-    }
-
-    /// @notice Stakes the rewards for the standard strategy
-    /// @param bnbReward The pending bnb reward to be restaked
-    function stakeStandardRewards(uint256 bnbReward) internal {
-        // 50% of the BNB is converted into TokenA-TokenB LP tokens
-        uint256 tokenPairLpShare = (bnbReward * 50) / 100;
-        (
-            uint256 tokenPairLpAmount,
-            uint256 unusedTokenA,
-            uint256 unusedTokenB
-        ) = DEX.convertEthToPairLP{ value: tokenPairLpShare } (address(LPToken));
-
-        totalStandardBnbReinvested += tokenPairLpShare;
-        totalUnusedTokenA += unusedTokenA;
-        totalUnusedTokenB += unusedTokenB;
-
-        // Update TokenA-TokenB LP rewards
-        standardStrategyRewardLP(tokenPairLpAmount);
-
-        // The TokenA-TokenB LP tokens are staked in the MasterChef
-        StakingContract.deposit(PoolID, tokenPairLpAmount);
-
-        // Get the price of FurFiToken relative to BNB
-        uint256 ghnyBnbPrice = AveragePriceOracle.getAverageFurFiForOneEth();
-
-        // If FurFiToken price too low, use buyback strategy
-        if (ghnyBnbPrice > EfficiencyLevel) {
-            // 40% of the BNB is used to buy FurFiToken from the DEX
-            uint256 furFiBuybackShare = (bnbReward * 40) / 100;
-            uint256 furFiBuybackAmount = DEX.convertEthToToken{
-                value: furFiBuybackShare
-            } (address(FurFiToken));
-
-            // 10% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
-            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
-                (bnbReward * 10) / 100,
-                EfficiencyLevel,
-                (1 ether) / 100
-            );
-
-            // The purchased and minted FurFiToken is rewarded to the Standard strategy participants
-            standardStrategyRewardFurFi(furFiBuybackAmount + mintedFurFi);
-            Referral.referralUpdateRewards(referralFurFi);
-
-            // The remaining 10% is transferred to the devs
-            _transferEth(
-                DevTeam,
-                bnbReward - tokenPairLpShare - furFiBuybackShare
-            );
-        } else {
-            // If FurFiToken price is high, 40% is converted into FurFiToken-BNB LP
-            uint256 furFiBnbLpShare = (bnbReward * 40) / 100;
-            (uint256 furFiBnbLpAmount, , ) = DEX.convertEthToTokenLP{
-                value: furFiBnbLpShare
-            } (address(FurFiToken));
-
-            // That FurFiToken-BNB LP is sent as reward to the Staking Pool
-            StakingPool.rewardLP(furFiBnbLpAmount);
-
-            // 50% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
-            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
-                (bnbReward * 50) / 100,
-                EfficiencyLevel,
-                (1 ether) / 100
-            );
-
-            // The minted FurFiToken is rewarded to the Standard strategy participants
-            standardStrategyRewardFurFi(mintedFurFi);
-            Referral.referralUpdateRewards(referralFurFi);
-
-            // The remaining 10% of BNB is transferred to the devs
-            _transferEth(
-                DevTeam,
-                bnbReward - tokenPairLpShare - furFiBnbLpShare
-            );
-        }
-    }
-
-    /// @notice Stakes the rewards for the furiofi strategy
-    /// @param bnbReward The pending bnb reward to be restaked
-    function stakeFuriofiRewards(uint256 bnbReward) internal {
-        // Get the price of FurFiToken relative to BNB
-        uint256 ghnyBnbPrice = AveragePriceOracle.getAverageFurFiForOneEth();
-
-        // If FurFiToken price too low, use buyback strategy
-        if (ghnyBnbPrice > EfficiencyLevel) {
-            // 90% (50% + 40%) of the BNB is used to buy FurFiToken from the DEX
-            uint256 furFiBuybackShare = (bnbReward * (50 + 40)) / 100;
-            uint256 furFiBuybackAmount = DEX.convertEthToToken{
-                value: furFiBuybackShare
-            } (address(FurFiToken));
-
-            // 10% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
-            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
-                (bnbReward * 10) / 100,
-                EfficiencyLevel,
-                (1 ether) / 100
-            );
-
-            // The purchased and minted FurFiToken is staked
-            furiofiStrategyStakeFurFi(furFiBuybackAmount + mintedFurFi);
-            Referral.referralUpdateRewards(referralFurFi);
-
-            // The remaining 6% of BNB is transferred to the devs
-            _transferEth(DevTeam, bnbReward - furFiBuybackShare);
-        } else {
-            // If FurFiToken price is high, 50% of the BNB is used to buy FurFiToken from the DEX
-            uint256 furFiBuybackShare = (bnbReward * 50) / 100;
-            uint256 furFiBuybackAmount = DEX.convertEthToToken{
-                value: furFiBuybackShare
-            } (address(FurFiToken));
-
-            // 40% of the BNB is converted into FurFiToken-BNB LP
-            uint256 furFiBnbLpShare = (bnbReward * 40) / 100;
-            (uint256 furFiBnbLpAmount, , ) = DEX.convertEthToTokenLP{
-                value: furFiBnbLpShare
-            } (address(FurFiToken));
-            // The FurFiToken-BNB LP is provided as reward to the Staking Pool
-            StakingPool.rewardLP(furFiBnbLpAmount);
-
-            // 50% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
-            (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
-                (bnbReward * 50) / 100,
-                EfficiencyLevel,
-                (1 ether) / 100
-            );
-
-            // The purchased and minted FurFiToken is staked
-            furiofiStrategyStakeFurFi(furFiBuybackAmount + mintedFurFi);
-            Referral.referralUpdateRewards(referralFurFi);
-
-            // The remaining 6% of BNB is transferred to the devs
-            _transferEth(
-                DevTeam,
-                bnbReward - furFiBuybackShare - furFiBnbLpShare
-            );
-        }
+        emit StakeRewardsEvent(msg.sender, bnbAmount);
+        return bnbAmount;
     }
 
     /// @notice Stakes the rewards for the stablecoin strategy
     /// @param bnbReward The pending bnb reward to be restaked
     function stakeStablecoinRewards(uint256 bnbReward) internal {
-        // 94% of the BNB is converted into TokenA-TokenB LP tokens
-        uint256 pairLpShare = (bnbReward * 94) / 100;
+        // 97% of the BNB is converted into TokenA-TokenB LP tokens
+        uint256 pairLpShare = (bnbReward * 97) / 100;
         (uint256 pairLpAmount, uint256 unusedTokenA, uint256 unusedTokenB) = DEX
             .convertEthToPairLP{ value: pairLpShare } (address(LPToken));
 
@@ -754,36 +656,8 @@ contract Furiofi is
         // The TokenA-TokenB LP tokens are staked in the MasterChef
         StakingContract.deposit(PoolID, pairLpAmount);
 
-        // The remaining 6% of BNB is transferred to the devs
+        // The remaining 3% of BNB is transferred to the devs
         _transferEth(DevTeam, bnbReward - pairLpShare);
-    }
-
-    /// @notice Mints tokens according to the bee efficiency level
-    /// @param _share The share that should be minted in furFiToken
-    /// @param _EfficiencyLevel The bee efficiency level to be uset to convert bnb shares into furFiToken amounts
-    /// @param _additionalShare The additional share tokens to be minted
-    /// @return tokens The amount minted in furFiToken tokens
-    /// @return additionalTokens The additional tokens that were minted
-    function mintTokens(
-        uint256 _share,
-        uint256 _EfficiencyLevel,
-        uint256 _additionalShare
-    ) internal returns(uint256 tokens, uint256 additionalTokens) {
-        tokens = (_share * _EfficiencyLevel) / (1 ether);
-        additionalTokens = (tokens * _additionalShare) / (1 ether);
-
-        FurFiToken.claimTokens(tokens + additionalTokens);
-    }
-
-    /// @notice Updates the bee efficiency level
-    /// @dev only updater role can perform this function
-    /// @param _newEfficiencyLevel The new bee efficiency level
-    function updateEfficiencyLevel(uint256 _newEfficiencyLevel)
-    external
-    override
-    onlyRole(UPDATER_ROLE)
-    {
-        EfficiencyLevel = _newEfficiencyLevel;
     }
 
     /// @notice Updates the restake threshold. If the CAKE rewards are bleow this value, stakeRewards() is ignored
@@ -791,7 +665,6 @@ contract Furiofi is
     /// @param _restakeThreshold The new restake threshold value
     function updateRestakeThreshold(uint256 _restakeThreshold)
     external
-    override
     onlyRole(UPDATER_ROLE)
     {
         restakeThreshold = _restakeThreshold;
@@ -800,7 +673,6 @@ contract Furiofi is
     /// @notice Used to recover funds sent to this contract by mistake and claims unused tokens
     function recoverFunds()
     external
-    override
     nonReentrant
     onlyRole(FUNDS_RECOVERY_ROLE)
     {
@@ -819,7 +691,6 @@ contract Furiofi is
 
     /// @notice Used to get the most up-to-date state for caller's deposits. It is intended to be statically called
     /// @dev Calls stakeRewards before reading strategy-specific data in order to get the most up to-date-state
-    /// @return currentStrategy - The current strategy in which the caller is in
     /// @return deposited - The amount of LP tokens deposited in the current strategy
     /// @return balance - The sum of deposited LP tokens and reinvested amounts
     /// @return totalReinvested - The total amount reinvested, including unclaimed rewards
@@ -829,7 +700,6 @@ contract Furiofi is
     function getUpdatedState()
     external
     returns(
-        Strategy currentStrategy,
         uint256 deposited,
         uint256 balance,
         uint256 totalReinvested,
@@ -840,40 +710,19 @@ contract Furiofi is
     {
         isNotPaused();
         _stakeRewards();
-        currentStrategy = userStrategy[msg.sender];
-        if (currentStrategy == Strategy.FURIOFI) {
-            deposited = getFuriofiStrategyBalance();
-            balance = deposited;
-            totalReinvested = 0;
-            (earnedFurFi, earnedBnb) = furiofiStrategyClaimLP();
-            stakedFurFi = getFuriofiStrategyStakedFurFi();
-        } else if (currentStrategy == Strategy.STANDARD) {
-            StandardStrategyParticipant memory participantData = getStandardStrategyParticipantData(msg.sender);
+        StablecoinStrategyParticipant memory participantData = getStablecoinStrategyParticipantData(msg.sender);
 
-            deposited = participantData.amount;
-            balance = getStandardStrategyBalance();
-            totalReinvested =
-                participantData.totalReinvested +
-                balance -
-                deposited;
+        deposited = participantData.amount;
+        balance = getStablecoinStrategyBalance();
+        totalReinvested =
+            participantData.totalReinvested +
+            balance -
+            deposited;
 
-            earnedFurFi = getStandardStrategyFurFiRewards();
-            earnedBnb = 0;
-            stakedFurFi = 0;
-        } else if (currentStrategy == Strategy.STABLECOIN) {
-            StablecoinStrategyParticipant memory participantData = getStablecoinStrategyParticipantData(msg.sender);
+        earnedFurFi = 0;
+        earnedBnb = 0;
+        stakedFurFi = 0;
 
-            deposited = participantData.amount;
-            balance = getStablecoinStrategyBalance();
-            totalReinvested =
-                participantData.totalReinvested +
-                balance -
-                deposited;
-
-            earnedFurFi = 0;
-            earnedBnb = 0;
-            stakedFurFi = 0;
-        }
     }
 
     /// @notice payout function
@@ -881,6 +730,23 @@ contract Furiofi is
     function _transferEth(address to, uint256 amount) internal {
         (bool transferSuccess, ) = payable(to).call{ value: amount } ("");
         require(transferSuccess, "TF");
+    }
+
+    /// @notice loan the furFiToken token to staker
+    function loan() external nonReentrant {
+        uint256 loanableAmount = LoanParticipantData[msg.sender].loanableAmount;
+        require(loanableAmount > 0, "Don't exist your loanable amount");
+
+        if(FurFiToken.balanceOf(address(this)) < loanableAmount)
+            FurFiToken.claimTokensWithoutAdditionalTokens(loanableAmount - FurFiToken.balanceOf(address(this)));
+
+        FurFiToken.transfer(msg.sender, loanableAmount);
+        LoanParticipantData[msg.sender].loanableAmount = 0;
+        LoanParticipantData[msg.sender].loanedAmount += loanableAmount;
+        totalLoanedAmount += loanableAmount;
+
+    emit LoanEvent(msg.sender, loanableAmount);
+
     }
 
     /// @notice Reads out the loan participant data
@@ -894,18 +760,17 @@ contract Furiofi is
         return LoanParticipantData[participant];
     }
 
-    /// @notice loan the furFiToken token to staker
-    function loan() external override nonReentrant {
-        uint256 loanableAmount = LoanParticipantData[msg.sender].loanableAmount;
-        require(loanableAmount > 0, "Don't exist your loanable amount");
-
-        if(FurFiToken.balanceOf(address(this)) < loanableAmount)
-            FurFiToken.claimTokensWithoutAdditionalTokens(loanableAmount - FurFiToken.balanceOf(address(this)));
-
-        FurFiToken.transfer(msg.sender, loanableAmount);
-        LoanParticipantData[msg.sender].loanableAmount = 0;
-        LoanParticipantData[msg.sender].loanedAmount += loanableAmount;
-        totalLoanedAmount += loanableAmount;
+    /// @notice return FurFi amount that staker have to repayment to withdraw some staking amount
+    /// @param withdrawalAmount The lp amount that staker are going to withdraw
+    /// @return  repayalAmount
+    function getRepayalAmount(uint256 withdrawalAmount)
+        public
+        view
+        returns (uint256 repayalAmount)
+    {
+        uint256 currentDeposits = getStablecoinStrategyBalance();
+        if(currentDeposits == 0) return 0;
+        return LoanParticipantData[msg.sender].loanedAmount * withdrawalAmount / currentDeposits;
 
     }
 

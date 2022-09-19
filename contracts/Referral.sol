@@ -116,9 +116,7 @@ contract Referral is
             activeFriends[_referralGiver] += 1;
         }
 
-        address _constReferralGiver = referralGiverAddresses[
-            _referralRecipient
-        ];
+        address _constReferralGiver = referralGiverAddresses[_referralRecipient];
 
         updatePendingRewards(msg.sender, _constReferralGiver);
 
@@ -182,24 +180,18 @@ contract Referral is
         msg.sender
     );
 
-        uint256 _rewardMultiplier = 1;
-
-        require(
-            _amount <= _currentReferralReward * _rewardMultiplier,
-            "Withdraw amount too large"
-        );
+        require(_amount <= _currentReferralReward, "Withdraw amount too large");
 
         referralGivers[_poolAddress][msg.sender].reward =
             _currentReferralReward -
-            _amount /
-            _rewardMultiplier;
+            _amount ;
         referralGivers[_poolAddress][msg.sender].rewardMask = roundMasks[
             _poolAddress
         ];
         referralGivers[_poolAddress][msg.sender].claimedRewards += _amount;
 
-        if (_amount - _amount / _rewardMultiplier > 0) {
-            FurFiToken.claimTokens(_amount - _amount / _rewardMultiplier);
+        if (_amount> 0) {
+            FurFiToken.claimTokens(_amount);
         }
 
         IERC20Upgradeable(address(FurFiToken)).safeTransfer(
@@ -219,10 +211,7 @@ contract Referral is
     {
         uint256 _totalWithdrawls = 0;
         for (uint256 i = 0; i < _poolAddresses.length; i++) {
-            uint256 _amountToWithdraw = getReferralRewards(
-            _poolAddresses[i],
-            msg.sender
-        ) * 1;
+            uint256 _amountToWithdraw = getReferralRewards(_poolAddresses[i], msg.sender);
             withdrawReferralRewards(_amountToWithdraw, _poolAddresses[i]);
             _totalWithdrawls += _amountToWithdraw;
         }

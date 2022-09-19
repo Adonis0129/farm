@@ -24,7 +24,7 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
     uint256 public standardStrategyDeposits;
 
     uint256 public totalFurFiTokenRewards;
-    uint256 private honeyRoundMask;
+    uint256 private furFiRoundMask;
 
     event StandardStrategyClaimFurFiTokenEvent(
         address indexed user,
@@ -35,7 +35,7 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
 
     function __StandardStrategy_init() internal initializer {
         lpRoundMask = 1;
-        honeyRoundMask = 1;
+        furFiRoundMask = 1;
     }
 
     /// @notice Deposits the desired amount for a standard strategy investor
@@ -113,7 +113,7 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
             return;
         }
         totalFurFiTokenRewards += amount;
-        honeyRoundMask += (DECIMAL_OFFSET * amount) / standardStrategyDeposits;
+        furFiRoundMask += (DECIMAL_OFFSET * amount) / standardStrategyDeposits;
     }
 
     /// @notice Claims the standard strategy investors furFiToken rewards
@@ -140,7 +140,7 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
 
         return
             participantData[msg.sender].pendingRewards +
-            ((honeyRoundMask - participantData[msg.sender].rewardMask) *
+            ((furFiRoundMask - participantData[msg.sender].rewardMask) *
                 participantData[msg.sender].amount) /
             DECIMAL_OFFSET;
     }
@@ -149,7 +149,7 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
     function updateStandardRewardMask() private {
         uint256 currentRewardBalance = getStandardStrategyFurFiRewards();
         participantData[msg.sender].pendingRewards = currentRewardBalance;
-        participantData[msg.sender].rewardMask = honeyRoundMask;
+        participantData[msg.sender].rewardMask = furFiRoundMask;
     }
 
     /// @notice Reads out the participant data

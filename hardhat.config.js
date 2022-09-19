@@ -1,3 +1,4 @@
+require("hardhat-contract-sizer");
 require("@nomiclabs/hardhat-ethers");
 require("@nomiclabs/hardhat-etherscan");
 // require('@openzeppelin/hardhat-defender');
@@ -8,17 +9,17 @@ require("dotenv").config();
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
- const accounts = process.env.PRIVATE_KEY
- ? [
-     process.env.PRIVATE_KEY,
-     process.env.PRIVATE_KEY1,
-     process.env.PRIVATE_KEY2,
-     process.env.PRIVATE_KEY3,
-     process.env.PRIVATE_KEY4,
-     process.env.PRIVATE_KEY5,
-     process.env.PRIVATE_KEY6
-   ]
- : [];
+const accounts = process.env.PRIVATE_KEY
+  ? [
+      process.env.PRIVATE_KEY,
+      process.env.PRIVATE_KEY1,
+      process.env.PRIVATE_KEY2,
+      process.env.PRIVATE_KEY3,
+      process.env.PRIVATE_KEY4,
+      process.env.PRIVATE_KEY5,
+      process.env.PRIVATE_KEY6,
+    ]
+  : [];
 
 module.exports = {
   solidity: {
@@ -99,7 +100,7 @@ module.exports = {
   },
   networks: {
     hardhat: {
-      allowUnlimitedContractSize: true
+      // allowUnlimitedContractSize: true
     },
     rinkeby: {
       url: process.env.RINKEBY_RPC_URL || "",
