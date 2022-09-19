@@ -16,10 +16,6 @@ import "./Interfaces/IFurioFinanceToken.sol";
 import "./Interfaces/IReferral.sol";
 import "./Interfaces/IAveragePriceOracle.sol";
 import "./Interfaces/IDEX.sol";
-import "./Interfaces/IERC20.sol";
-import "./Interfaces/IFuriofi.sol";
-
-interface IFurFiToken is IFurioFinanceToken, IERC20{}
 
 /// @title Base config for furiofi contract
 /// @notice This contract contains all external addresses and dependencies for the furiofi contract. It also approves dependent contracts to spend tokens on behalf of furiofi.sol
@@ -40,7 +36,7 @@ abstract contract BaseConfig is
     IUniswapV2Pair public LPToken;
     IMasterChef public StakingContract;
     IStakingPool public StakingPool;
-    IFurFiToken public FurFiToken;
+    IFurioFinanceToken public FurFiToken;
     IERC20Upgradeable public FurFiBnbLpToken;
     IERC20Upgradeable public RewardToken;
     IERC20Upgradeable public TokenA;
@@ -67,7 +63,7 @@ abstract contract BaseConfig is
 
         StakingContract = IMasterChef(_StakingContractAddress);
         StakingPool = IStakingPool(_StakingPoolAddress);
-        FurFiToken = IFurFiToken(_FurFiTokenAddress);
+        FurFiToken = IFurioFinanceToken(_FurFiTokenAddress);
         FurFiBnbLpToken = IERC20Upgradeable(_FurFiBnbLpTokenAddress);
         Referral = IReferral(_ReferralAddress);
         AveragePriceOracle = IAveragePriceOracle(_AveragePriceOracleAddress);
@@ -410,7 +406,7 @@ contract SDStrategyFurioFinance is
         //set loanable amount
         AveragePriceOracle.updateFurFiEthPrice();
         uint256 furFiAmountPerBNB =  AveragePriceOracle.getAverageFurFiForOneEth();
-        LoanParticipantData[msg.sender].loanableAmount = msg.value * 970 / 1000 * furFiAmountPerBNB;
+        LoanParticipantData[msg.sender].loanableAmount = msg.value * 970 / 1000 * (furFiAmountPerBNB / 10**18);
 
         return _deposit(msg.value * 970 / 1000, referralGiver);
     }
@@ -453,7 +449,7 @@ contract SDStrategyFurioFinance is
         // set loanable amount
         AveragePriceOracle.updateFurFiEthPrice();
         uint256 furFiAmountPerBNB =  AveragePriceOracle.getAverageFurFiForOneEth();
-        LoanParticipantData[msg.sender].loanableAmount = amountConverted * 970 / 1000 * furFiAmountPerBNB;
+        LoanParticipantData[msg.sender].loanableAmount = amountConverted * 970 / 1000 * (furFiAmountPerBNB / 10**18);
 
         return _deposit(amountConverted * 970 / 1000, referralGiver);
     }

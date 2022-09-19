@@ -11,7 +11,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "./Interfaces/IMasterChef.sol";
 import "./Interfaces/IUniswapV2Router01.sol";
 import "./Interfaces/IUniswapV2Pair.sol";
-import "./Interfaces/IStakingPool.sol";
+import "./Interfaces/IStakingPoolV1.sol";
 import "./Interfaces/IFurioFinanceToken.sol";
 import "./Interfaces/IReferral.sol";
 import "./Interfaces/IAveragePriceOracle.sol";
@@ -35,7 +35,7 @@ abstract contract BaseConfig is
 
     IUniswapV2Pair public LPToken;
     IMasterChef public StakingContract;
-    IStakingPool public StakingPool;
+    IStakingPoolV1 public StakingPool;
     IFurioFinanceToken public FurFiToken;
     IERC20Upgradeable public FurFiBnbLpToken;
     IERC20Upgradeable public RewardToken;
@@ -62,7 +62,7 @@ abstract contract BaseConfig is
         _grantRole(DEFAULT_ADMIN_ROLE, _Admin);
 
         StakingContract = IMasterChef(_StakingContractAddress);
-        StakingPool = IStakingPool(_StakingPoolAddress);
+        StakingPool = IStakingPoolV1(_StakingPoolAddress);
         FurFiToken = IFurioFinanceToken(_FurFiTokenAddress);
         FurFiBnbLpToken = IERC20Upgradeable(_FurFiBnbLpTokenAddress);
         Referral = IReferral(_ReferralAddress);
@@ -219,7 +219,7 @@ abstract contract FuriofiStrategy is Initializable, BaseConfig {
             StakingPool.lpBalanceOf(address(this)) -
             furiofiStrategyLastLpBalance;
         uint256 newAdditionalFurFiTokens = claimedAdditionalFurFi +
-            StakingPool.getPendingFurFiRewards() -
+            StakingPool.getPendingFurFiRewards(address(this)) -
             furiofiStrategyLastAdditionalFurFiBalance;
 
         furiofiStrategyLastFurFiBalance += newFurFiTokens;
@@ -419,7 +419,7 @@ abstract contract FuriofiStrategy is Initializable, BaseConfig {
 /// User with DEFAULT_ADMIN_ROLE can grant UPDATER_ROLE to any address.
 /// The DEFAULT_ADMIN_ROLE is intended to be a 2 out of 3 multisig wallet in the beginning and then be moved to governance in the future.
 /// The Contract uses ReentrancyGuard from openzeppelin for all transactions that transfer bnbs to the msg.sender
-contract FFStrategyFurioFinance is
+contract FFStrategyFurioFinanceV1 is
     Initializable,
     BaseConfig,
     FuriofiStrategy,
