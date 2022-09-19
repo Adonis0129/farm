@@ -21,14 +21,13 @@ contract FurioFinanceToken is
     ERC20PermitUpgradeable,
     ERC20VotesUpgradeable,
     AccessControlUpgradeable,
-    PausableUpgradeable,
-    IFurioFinanceToken
+    PausableUpgradeable
 {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-    mapping(address => uint256) public override totalClaimed;
+    mapping(address => uint256) public totalClaimed;
 
     address public developmentFounders;
     address public advisors;
@@ -142,7 +141,6 @@ contract FurioFinanceToken is
     /// @param amount The amount to be minted
     function claimTokens(uint256 amount)
         external
-        override
         onlyRole(MINTER_ROLE)
     {
         _mint(msg.sender, amount);
@@ -158,7 +156,6 @@ contract FurioFinanceToken is
     /// @param amount The amount to be minted
     function claimTokensWithoutAdditionalTokens(uint256 amount)
         external
-        override
         onlyRole(MINTER_ROLE)
     {
         _mint(msg.sender, amount);
@@ -209,7 +206,6 @@ contract FurioFinanceToken is
     /// @param _developmentFounders The new development founders address
     function setDevelopmentFounders(address _developmentFounders)
         external
-        override
         onlyRole(UPDATER_ROLE)
     {
         require(
@@ -228,7 +224,6 @@ contract FurioFinanceToken is
     /// @param _advisors The new advisors address
     function setAdvisors(address _advisors)
         external
-        override
         onlyRole(UPDATER_ROLE)
     {
         require(_advisors != address(0), "Address must not be zero address");
@@ -241,7 +236,6 @@ contract FurioFinanceToken is
     /// @param _marketingReservesPool The new marketing reserves pool address
     function setMarketingReservesPool(address _marketingReservesPool)
         external
-        override
         onlyRole(UPDATER_ROLE)
     {
         require(
@@ -260,7 +254,6 @@ contract FurioFinanceToken is
     /// @param _devTeam The new dev team address
     function setDevTeam(address _devTeam)
         external
-        override
         onlyRole(UPDATER_ROLE)
     {
         require(_devTeam != address(0), "Address must not be zero address");
