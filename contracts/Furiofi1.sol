@@ -219,7 +219,7 @@ abstract contract FuriofiStrategy is Initializable, BaseConfig {
             StakingPool.lpBalanceOf(address(this)) -
             furiofiStrategyLastLpBalance;
         uint256 newAdditionalFurFiTokens = claimedAdditionalFurFi +
-            StakingPool.getPendingFurFiRewards() -
+            StakingPool.getPendingFurFiRewards(address(this)) -
             furiofiStrategyLastAdditionalFurFiBalance;
 
         furiofiStrategyLastFurFiBalance += newFurFiTokens;
