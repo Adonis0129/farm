@@ -246,7 +246,7 @@ contract StakingPool is
 
     function updateAdditionalMintRewardMask() public whenNotPaused {
         updateAdditionalMintRoundMask();
-        uint256 pendingFurFiRewards = getPendingFurFiRewards();
+        uint256 pendingFurFiRewards = getPendingFurFiRewards(msg.sender);
 
         stakerAmounts[msg.sender].pendingFurFiMint = pendingFurFiRewards;
         stakerAmounts[msg.sender].furFiMintMask = furFiMintRoundMask;
@@ -317,9 +317,10 @@ contract StakingPool is
 
     /// @notice Returns te pending amount of minted FurFi rewards
     /// @dev The result is based on the current round mask, as well as the change in the round mask since the last update
+    /// @param staker staker address
     /// @return Pending rewards
-    function getPendingFurFiRewards() public view override returns (uint256) {
-        if (stakerAmounts[msg.sender].furFiMintMask == 0) return 0;
+    function getPendingFurFiRewards(address staker) public view override returns (uint256) {
+        if (stakerAmounts[staker].furFiMintMask == 0) return 0;
 
         uint256 currentRoundMask = furFiMintRoundMask;
 
@@ -335,9 +336,9 @@ contract StakingPool is
         }
 
         return
-            stakerAmounts[msg.sender].pendingFurFiMint +
-            ((currentRoundMask - stakerAmounts[msg.sender].furFiMintMask) *
-                stakerAmounts[msg.sender].stakedAmount) /
+            stakerAmounts[staker].pendingFurFiMint +
+            ((currentRoundMask - stakerAmounts[staker].furFiMintMask) *
+                stakerAmounts[staker].stakedAmount) /
             DECIMAL_OFFSET;
     }
 
