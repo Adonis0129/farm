@@ -149,7 +149,7 @@ describe("test ", () => {
 
     it("user1 transfer 5000 token to user2", async () => {
         if(!isOnchain){
-              var tx =await token.transfer(user2.address, toBigNum("5000", 18));
+              var tx =await token.connect(user1).transfer(user2.address, toBigNum("5000", 18));
               await tx.wait();
           }
     });

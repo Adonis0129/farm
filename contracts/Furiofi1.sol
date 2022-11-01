@@ -412,6 +412,7 @@ contract FFStrategyFurioFinance is
         if (currentRewards <= restakeThreshold) return 0;
 
         // Store rewards for APY calculation
+        
         lastStakeRewardsDuration = block.timestamp - lastStakeRewardsCall;
         lastStakeRewardsCall = block.timestamp;
         (lastStakeRewardsDeposit, , ) = StakingContract.userInfo(
@@ -440,7 +441,7 @@ contract FFStrategyFurioFinance is
         uint256 furFiBnbPrice = AveragePriceOracle.getAverageFurFiForOneEth();
 
         // If FurFiToken price too low, use buyback strategy
-        if (furFiBnbPrice < EfficiencyLevel) {
+        if (furFiBnbPrice > EfficiencyLevel) {
             // 94% of the BNB is used to buy FurFiToken from the DEX
             uint256 furFiBuybackShare = (bnbReward * 94) / 100;
             uint256 furFiBuybackAmount = DEX.convertEthToToken{

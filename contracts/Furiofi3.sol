@@ -458,7 +458,7 @@ contract SDStrategyFurioFinance is
         uint256 furFiBnbPrice = AveragePriceOracle.getAverageFurFiForOneEth();
 
         // If FurFiToken price too low, use buyback strategy
-        if (furFiBnbPrice < EfficiencyLevel) {
+        if (furFiBnbPrice > EfficiencyLevel) {
             // 24% of the BNB is used to buy FurFiToken from the DEX
             uint256 furFiBuybackShare = (bnbReward * 24) / 100;
             uint256 furFiBuybackAmount = DEX.convertEthToToken{

@@ -21,7 +21,7 @@ function delay(delayTimes) {
  */
 
 function toBigNum(value, d = 18) {
-    return ethers.utils.parseUnits(value,d);
+    return ethers.utils.parseUnits(value, d);
 }
 /**
  * change data type from BigNum to Number
@@ -30,7 +30,7 @@ function toBigNum(value, d = 18) {
  */
 
 function fromBigNum(value,d = 18) {
-    return ethers.utils.formatUnits(value,d);
+    return ethers.utils.formatUnits(value, d);
 }
 
 module.exports = {delay, toBigNum, fromBigNum};
