@@ -28,7 +28,7 @@ abstract contract StandardStrategy is Initializable, BaseConfig {
 
     event StandardStrategyClaimFurFiTokenEvent(
         address indexed user,
-        uint256 honeyAmount
+        uint256 furFiAmount
     );
 
     mapping(address => StandardStrategyParticipant) private participantData;

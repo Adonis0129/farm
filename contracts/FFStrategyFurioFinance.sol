@@ -7,18 +7,13 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "./Config/BaseConfig.sol";
-import "./Strategy/StandardStrategy.sol";
+import "./Strategy/FuriofiStrategy.sol";
 
-/// @title The Standard Strategy FurioFinance contract
-/// @notice This contract put together all abstract contracts and is deployed once for each token pair (hive). It allows the user to deposit and withdraw funds to the predefined hive. In addition, rewards can be staked using stakeReward.
-/// @dev AccessControl from openzeppelin implementation is used to handle the update of the beeEfficiency level.
-/// User with DEFAULT_ADMIN_ROLE can grant UPDATER_ROLE to any address.
-/// The DEFAULT_ADMIN_ROLE is intended to be a 2 out of 3 multisig wallet in the beginning and then be moved to governance in the future.
-/// The Contract uses ReentrancyGuard from openzeppelin for all transactions that transfer bnbs to the msg.sender
-contract SDStrategyFurioFinance is
+/// @title FurioFi strategy furiofinance contract
+contract FFStrategyFurioFinance is
     Initializable,
     BaseConfig,
-    StandardStrategy,
+    FuriofiStrategy,
     ReentrancyGuardUpgradeable
 {
     receive() external payable { }
@@ -49,7 +44,7 @@ contract SDStrategyFurioFinance is
             _DEXAddress,
             _PoolID
         );
-        __StandardStrategy_init();
+        __FuriofiStrategy_init();
         __Pausable_init();
 
         EfficiencyLevel = 500 ether;
@@ -60,8 +55,6 @@ contract SDStrategyFurioFinance is
     uint256 public totalUnusedTokenA;
     uint256 public totalUnusedTokenB;
     uint256 public totalRewardsClaimed;
-    uint256 public totalStandardBnbReinvested;
-    uint256 public totalStablecoinBnbReinvested;
     uint256 public lastStakeRewardsCall;
     uint256 public lastStakeRewardsDuration;
     uint256 public lastStakeRewardsDeposit;
@@ -69,28 +62,16 @@ contract SDStrategyFurioFinance is
     uint256 public restakeThreshold;
 
     struct LoanParticipant {
-        uint256 loanableAmount; // loanable furFiToken token amount
-        uint256 loanedAmount; // loaned furFiToken token amount
+        uint256 loanableAmount; // loanable furFiToken amount
+        uint256 loanedAmount; // loaned furFiToken amount
     }
     uint256 totalLoanedAmount;
     mapping(address => LoanParticipant) private LoanParticipantData;
 
-    event DepositEvent(
-        address indexed user,
-        uint256 lpAmount
-    );
-    event WithdrawEvent(
-        address indexed user,
-        uint256 lpAmount
-    );
-    event StakeRewardsEvent(
-        address indexed caller,
-        uint256 bnbAmount
-    );
-    event LoanEvent(
-        address indexed user,
-        uint256 furFiAmount
-    );
+    event DepositEvent(address indexed user, uint256 lpAmount);
+    event WithdrawEvent(address indexed user, uint256 lpAmount);
+    event StakeRewardsEvent(address indexed caller, uint256 bnbAmount);
+    event LoanEvent(address indexed user, uint256 furFiAmount);
 
     /// @notice pause
     /// @dev pause the contract
@@ -134,7 +115,7 @@ contract SDStrategyFurioFinance is
         //set loanable amount
         AveragePriceOracle.updateFurFiEthPrice();
         uint256 furFiAmountPerBNB =  AveragePriceOracle.getAverageFurFiForOneEth();
-        LoanParticipantData[msg.sender].loanableAmount = msg.value * 970 / 1000 * (furFiAmountPerBNB / 10**18);
+        LoanParticipantData[msg.sender].loanableAmount = msg.value * 970 / 1000 * (furFiAmountPerBNB / 10**18) ;
 
         return _deposit(msg.value * 970 / 1000, referralGiver);
     }
@@ -182,6 +163,8 @@ contract SDStrategyFurioFinance is
         return _deposit(amountConverted * 970 / 1000, referralGiver);
     }
 
+    
+
     /// @notice The public withdraw function
     /// @dev Withdraws the desired amount for the user and transfers the bnbs to the user by using the call function. Adds a reentrant guard
     /// @param amount The amount of the token to be withdrawn
@@ -205,11 +188,11 @@ contract SDStrategyFurioFinance is
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
 
-        uint256 repayalAmount = getRepayalAmount(amount);
+        uint256 repayalAmount = getRepayalAmount(msg.sender, amount);
         //repayment some loaned token
         if(repayalAmount > 0)
         {
-            require(FurFiToken.balanceOf(msg.sender) >= repayalAmount);
+            require(FurFiToken.balanceOf(msg.sender) >= repayalAmount, "Insufficient repayalAmount amount");
             FurFiToken.transferFrom(msg.sender, address(this), repayalAmount);
             LoanParticipantData[msg.sender].loanedAmount -= repayalAmount;
         }
@@ -251,7 +234,7 @@ contract SDStrategyFurioFinance is
         }
 
         _stakeRewards();
-        uint256 currentDeposits = getStandardStrategyBalance();
+        uint256 currentDeposits = getFuriofiStrategyBalance(msg.sender);
         uint256 amountWithdrawn = 0;
         if (currentDeposits > 0) {
             amountWithdrawn = _withdraw(currentDeposits);
@@ -285,7 +268,7 @@ contract SDStrategyFurioFinance is
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
 
-        uint256 repayalAmount = getRepayalAmount(amount);
+        uint256 repayalAmount = getRepayalAmount(msg.sender, amount);
         //repayment some loaned token
         if(repayalAmount > 0)
         {
@@ -296,6 +279,7 @@ contract SDStrategyFurioFinance is
 
         _stakeRewards();
         uint256 amountWithdrawn = _withdraw(amount);
+        
         uint256 tokenAmountWithdrawn = DEX.convertEthToToken{
             value: amountWithdrawn
         } (token);
@@ -340,7 +324,7 @@ contract SDStrategyFurioFinance is
             }
         }
 
-        standardStrategyDeposit(lpValue);
+        furiofiStrategyDeposit(lpValue);
         StakingContract.deposit(PoolID, lpValue);
 
         Referral.referralDeposit(lpValue, msg.sender, referralGiver);
@@ -354,8 +338,9 @@ contract SDStrategyFurioFinance is
     /// @return Amount to be withdrawn
     function _withdraw(uint256 amount) internal returns(uint256) {
 
-        standardStrategyWithdraw(amount);
-        standardStrategyClaimFurFi();
+        furiofiStrategyWithdraw(amount);
+        furiofiStrategyClaimFurFi();
+        furiofiStrategyClaimLP();
 
         StakingContract.withdraw(PoolID, amount);
 
@@ -374,7 +359,7 @@ contract SDStrategyFurioFinance is
     /// @param amountOut The list of output amounts for each quoted input amount
     /// @param slippage The allowed slippage
     /// @param deadline The deadline for the transaction
-    /// @return bnbAmount The BNB reward
+    /// @return bnbAmount The  BNB reward
     function stakeRewards(
         address[] memory fromToken,
         address[] memory toToken,
@@ -427,40 +412,22 @@ contract SDStrategyFurioFinance is
             address(RewardToken)
         );
 
-        if (standardStrategyDeposits > 0 && bnbAmount > 100) stakeStandardRewards(bnbAmount);
+        if (furiofiStrategyDeposits > 0 && bnbAmount > 100) stakeFuriofiRewards(bnbAmount);
 
         emit StakeRewardsEvent(msg.sender, bnbAmount);
         return bnbAmount;
     }
 
-    /// @notice Stakes the rewards for the standard strategy
+    /// @notice Stakes the rewards for the furiofi strategy
     /// @param bnbReward The pending bnb reward to be restaked
-    function stakeStandardRewards(uint256 bnbReward) internal {
-        // 70% of the BNB is converted into TokenA-TokenB LP tokens
-        uint256 tokenPairLpShare = (bnbReward * 70) / 100;
-        (
-            uint256 tokenPairLpAmount,
-            uint256 unusedTokenA,
-            uint256 unusedTokenB
-        ) = DEX.convertEthToPairLP{ value: tokenPairLpShare } (address(LPToken));
-
-        totalStandardBnbReinvested += tokenPairLpShare;
-        totalUnusedTokenA += unusedTokenA;
-        totalUnusedTokenB += unusedTokenB;
-
-        // Update TokenA-TokenB LP rewards
-        standardStrategyRewardLP(tokenPairLpAmount);
-
-        // The TokenA-TokenB LP tokens are staked in the MasterChef
-        StakingContract.deposit(PoolID, tokenPairLpAmount);
-
+    function stakeFuriofiRewards(uint256 bnbReward) internal {
         // Get the price of FurFiToken relative to BNB
         uint256 furFiBnbPrice = AveragePriceOracle.getAverageFurFiForOneEth();
 
         // If FurFiToken price too low, use buyback strategy
         if (furFiBnbPrice > EfficiencyLevel) {
-            // 24% of the BNB is used to buy FurFiToken from the DEX
-            uint256 furFiBuybackShare = (bnbReward * 24) / 100;
+            // 94% of the BNB is used to buy FurFiToken from the DEX
+            uint256 furFiBuybackShare = (bnbReward * 94) / 100;
             uint256 furFiBuybackAmount = DEX.convertEthToToken{
                 value: furFiBuybackShare
             } (address(FurFiToken));
@@ -472,40 +439,42 @@ contract SDStrategyFurioFinance is
                 (1 ether) / 100
             );
 
-            // The purchased and minted FurFiToken is rewarded to the Standard strategy participants
-            standardStrategyRewardFurFi(furFiBuybackAmount + mintedFurFi);
+            // The purchased and minted FurFiToken is staked
+            furiofiStrategyStakeFurFi(furFiBuybackAmount + mintedFurFi);
             Referral.referralUpdateRewards(referralFurFi);
 
-            // The remaining 6% is transferred to the devs
-            _transferEth(
-                DevTeam,
-                bnbReward - tokenPairLpShare - furFiBuybackShare
-            );
+            // The remaining 6% of BNB is transferred to the devs
+            _transferEth(DevTeam, bnbReward - furFiBuybackShare);
         } else {
-            // If FurFiToken price is high, 24% is converted into FurFiToken-BNB LP
+            // If FurFiToken price is high, 70% of the BNB is used to buy FurFiToken from the DEX
+            uint256 furFiBuybackShare = (bnbReward * 70) / 100;
+            uint256 furFiBuybackAmount = DEX.convertEthToToken{
+                value: furFiBuybackShare
+            } (address(FurFiToken));
+
+            // 24% of the BNB is converted into FurFiToken-BNB LP
             uint256 furFiBnbLpShare = (bnbReward * 24) / 100;
             (uint256 furFiBnbLpAmount, , ) = DEX.convertEthToTokenLP{
                 value: furFiBnbLpShare
             } (address(FurFiToken));
-
-            // That FurFiToken-BNB LP is sent as reward to the Staking Pool
+            // The FurFiToken-BNB LP is provided as reward to the Staking Pool
             StakingPool.rewardLP(furFiBnbLpAmount);
 
             // 30% of the equivalent amount of FurFiToken (based on FurFiToken-BNB price) is minted
             (uint256 mintedFurFi, uint256 referralFurFi) = mintTokens(
                 (bnbReward * 30) / 100,
-                furFiBnbPrice,
+                EfficiencyLevel,
                 (1 ether) / 100
             );
 
-            // The minted FurFiToken is rewarded to the Standard strategy participants
-            standardStrategyRewardFurFi(mintedFurFi);
+            // The purchased and minted FurFiToken is staked
+            furiofiStrategyStakeFurFi(furFiBuybackAmount + mintedFurFi);
             Referral.referralUpdateRewards(referralFurFi);
 
             // The remaining 6% of BNB is transferred to the devs
             _transferEth(
                 DevTeam,
-                bnbReward - tokenPairLpShare - furFiBnbLpShare
+                bnbReward - furFiBuybackShare - furFiBnbLpShare
             );
         }
     }
@@ -527,9 +496,9 @@ contract SDStrategyFurioFinance is
         FurFiToken.claimTokens(tokens + additionalTokens);
     }
 
-    /// @notice Updates the bee efficiency level
+    /// @notice Updates the  efficiency level
     /// @dev only updater role can perform this function
-    /// @param _newEfficiencyLevel The new bee efficiency level
+    /// @param _newEfficiencyLevel The new  efficiency level
     function updateEfficiencyLevel(uint256 _newEfficiencyLevel)
     external
     onlyRole(UPDATER_ROLE)
@@ -587,19 +556,11 @@ contract SDStrategyFurioFinance is
     {
         isNotPaused();
         _stakeRewards();
-
-        StandardStrategyParticipant memory participantData = getStandardStrategyParticipantData(msg.sender);
-
-        deposited = participantData.amount;
-        balance = getStandardStrategyBalance();
-        totalReinvested =
-            participantData.totalReinvested +
-            balance -
-            deposited;
-
-        earnedFurFi = getStandardStrategyFurFiRewards();
-        earnedBnb = 0;
-        stakedFurFi = 0;
+        deposited = getFuriofiStrategyBalance(msg.sender);
+        balance = deposited;
+        totalReinvested = 0;
+        (earnedFurFi, earnedBnb) = furiofiStrategyClaimLP();
+        stakedFurFi = getFuriofiStrategyStakedFurFi(msg.sender);
     }
 
     /// @notice payout function
@@ -622,6 +583,8 @@ contract SDStrategyFurioFinance is
         LoanParticipantData[msg.sender].loanedAmount += loanableAmount;
         totalLoanedAmount += loanableAmount;
 
+        emit LoanEvent(msg.sender, loanableAmount);
+
     }
 
     /// @notice Reads out the loan participant data
@@ -636,17 +599,19 @@ contract SDStrategyFurioFinance is
     }
 
     /// @notice return FurFi amount that staker have to repayment to withdraw some staking amount
+    /// @param staker staker address
     /// @param withdrawalAmount The lp amount that staker are going to withdraw
     /// @return  repayalAmount
-    function getRepayalAmount(uint256 withdrawalAmount)
+    function getRepayalAmount(address staker, uint256 withdrawalAmount)
         public
         view
         returns (uint256 repayalAmount)
     {
-        uint256 currentDeposits = getStandardStrategyBalance();
+        uint256 currentDeposits = getFuriofiStrategyBalance(staker);
         if(currentDeposits == 0) return 0;
-        return LoanParticipantData[msg.sender].loanedAmount * withdrawalAmount / currentDeposits;
+        return LoanParticipantData[staker].loanedAmount * withdrawalAmount / currentDeposits;
 
     }
+
     uint256[49] private __gap;
 }

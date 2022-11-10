@@ -10,12 +10,12 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-/// @title FurioFinance-BNB-LP Staking pool
-/// @notice The FurioFinance-BNB-LP staking pool allows investors to deposit FurioFinance-BNB-LP tokens. The investor recieves each block a certain reward in FurioFinance tokens. This blockReward can be updated by an account with UPDATER_ROLE.
+/// @title FurFi-BNB-LP Staking pool
+/// @notice The FurFi-BNB-LP staking pool allows investors to deposit FurFi-BNB-LP tokens. The investor recieves each block a certain reward in FurioFinance tokens. This blockReward can be updated by an account with UPDATER_ROLE.
 /// @dev AccessControl from openzeppelin implementation is used to handle the UPDATER_ROLE, which can update the blockReward
 /// User with DEFAULT_ADMIN_ROLE can grant UPDATER_ROLE to any address.
 /// The DEFAULT_ADMIN_ROLE is intended to be a 2 out of 3 multisig wallet in the beginning and then be moved to governance in the future.
-/// The FurioFinance-BNB-LP staking pool uses EIP-1973 to for scalable rewards
+/// The FurFi-BNB-LP staking pool uses EIP-1973 to for scalable rewards
 contract FurioFinanceBNBFarm is
     Initializable,
     AccessControlUpgradeable,

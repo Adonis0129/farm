@@ -32,7 +32,7 @@ let syrup;
 let masterChef;
 let masterChefV2;
 let stakingPool;
-let refferal;
+let referral;
 let averagePriceOracle;
 let dex;
 let fFStrategyFurioFinance;
@@ -61,7 +61,7 @@ var deployedAddress = {
   masterChefV2: "0x26A68F58D8FB1aaebb3C2091D6e3fB1118e4e1E5",
   token: "0xA3ae030037d2A34875FcA27b79a0f6F014D9F68F",
   stakingPool: "0x96AAEFCb181BdBb50DD9c152dDf695960F42BAf0",
-  refferal: "0xe9662E7203467F8b60D140bF8bd777915218Cdb5",
+  referral: "0xe9662E7203467F8b60D140bF8bd777915218Cdb5",
   averagePriceOracle: "0xcfb319ae38303ed670D0E358Eb4490A3cA54C064",
   dex: "0x69708f2CE6ef418ff80cA66341B51659603E531D",
   fFStrategyFurioFinance: "0x5E8c8C0615e2Ec15Aedb24A3f6Cee1a76c49Db71",
@@ -193,7 +193,7 @@ describe("Dex contracts deployment", () => {
 });
 
 /////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////       Stable tokens deplyment          ////////////////////////////
+///////////////////////////////       Stable tokens deplyment          //////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 describe(" stable tokens deployment", () => {
@@ -735,48 +735,61 @@ describe("Contract deployment and setting for farming", () => {
         owner.address
       );
       await tx.wait();
-      //Honey Token
+      //FurFi Token
       var tx = await token.grantRole(
         keccak256("MINTER_ROLE"),
         stakingPool.address
       );
       await tx.wait();
+
+      
+      //set setFurFiMintingRewards
+      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      console.log("current timestamp", currentTimeStamp);
+      var tx = await stakingPool.setFurFiMintingRewards(
+        currentTimeStamp + 2592000,
+        currentTimeStamp + 7776000,
+        toBigNum("100000"),
+        toBigNum("10000")
+      )
+      await tx.wait();
+      
     } else {
       stakingPool = StakingPool.attach(deployedAddress.stakingPool);
     }
     console.log("stakingPool", stakingPool.address);
   });
 
-  it("Refferal contract deployment, set role", async () => {
-    Refferal = await ethers.getContractFactory("Referral");
+  it("Referral contract deployment, set role", async () => {
+    Referral = await ethers.getContractFactory("Referral");
     if (!isOnchain) {
-      refferal = await upgrades.deployProxy(Refferal, [
+      referral = await upgrades.deployProxy(Referral, [
         token.address,
         owner.address,
         "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
       ]);
-      await refferal.deployed();
+      await referral.deployed();
       //set role
-      var tx = await refferal.grantRole(
+      var tx = await referral.grantRole(
         keccak256("UPDATER_ROLE"),
         owner.address
       );
       await tx.wait();
-      var tx = await refferal.grantRole(
+      var tx = await referral.grantRole(
         keccak256("PAUSER_ROLE"),
         owner.address
       );
       await tx.wait();
-      //Honey
+      //FurFi
       var tx = await token.grantRole(
         keccak256("MINTER_ROLE"),
-        refferal.address
+        referral.address
       );
       await tx.wait();
     } else {
-      refferal = Refferal.attach(deployedAddress.refferal);
+      referral = Referral.attach(deployedAddress.referral);
     }
-    console.log("refferal", refferal.address);
+    console.log("referral", referral.address);
   });
 
   it("AveragePriceOracle contract deployment, set role", async () => {
@@ -799,7 +812,7 @@ describe("Contract deployment and setting for farming", () => {
       // await averagePriceOracle.deployed();
 
       //set role
-      var tx = await refferal.grantRole(
+      var tx = await referral.grantRole(
         keccak256("PAUSER_ROLE"),
         owner.address
       );
@@ -885,7 +898,7 @@ describe("Contract deployment and setting for farming", () => {
         token.address,
         furFi_bnb_lp.address,
         "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
-        refferal.address,
+        referral.address,
         averagePriceOracle.address,
         dex.address,
         "1",
@@ -900,7 +913,7 @@ describe("Contract deployment and setting for farming", () => {
       //   token.address,
       //   lpAddresses.furFi_bnb_lp,
       //   "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
-      //   refferal.address,
+      //   referral.address,
       //   averagePriceOracle.address,
       //   dex.address,
       //   "1",
@@ -938,7 +951,7 @@ describe("Contract deployment and setting for farming", () => {
       var tx = await stakingPool.grantRole(keccak256("REWARDER_ROLE"), fFStrategyFurioFinance.address);
       await tx.wait();
       //Referral
-      var tx = await refferal.grantRole(keccak256("REWARDER_ROLE"), fFStrategyFurioFinance.address);
+      var tx = await referral.grantRole(keccak256("REWARDER_ROLE"), fFStrategyFurioFinance.address);
       await tx.wait();
     }
   });

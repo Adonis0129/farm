@@ -32,7 +32,7 @@ let syrup;
 let masterChef;
 let masterChefV2;
 let stakingPool;
-let refferal;
+let referral;
 let averagePriceOracle;
 let dex;
 let sDStrategyFurioFinance;
@@ -61,7 +61,7 @@ var deployedAddress = {
   masterChefV2: "0x26A68F58D8FB1aaebb3C2091D6e3fB1118e4e1E5",
   token: "0xA3ae030037d2A34875FcA27b79a0f6F014D9F68F",
   stakingPool: "0x96AAEFCb181BdBb50DD9c152dDf695960F42BAf0",
-  refferal: "0xe9662E7203467F8b60D140bF8bd777915218Cdb5",
+  referral: "0xe9662E7203467F8b60D140bF8bd777915218Cdb5",
   averagePriceOracle: "0xcfb319ae38303ed670D0E358Eb4490A3cA54C064",
   dex: "0x69708f2CE6ef418ff80cA66341B51659603E531D",
   sDStrategyFurioFinance: "0x19257adB24A3918886623a125f2Ed9a46B749d43",
@@ -648,7 +648,7 @@ describe("Pancakeswap evironment building", () => {
 });
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////
-// //////////////   FirFi Token and Other contracts Deployment for Farming     /////////////////////
+// //////////////   FurFi Token and Other contracts Deployment for Farming     /////////////////////
 // /////////////////////////////////////////////////////////////////////////////////////////////////
 describe("Contract deployment and setting for farming", () => {
   it("FurFiToken deployment, set role", async () => {
@@ -735,48 +735,61 @@ describe("Contract deployment and setting for farming", () => {
         owner.address
       );
       await tx.wait();
-      //Honey Token
+      //FurFi Token
       var tx = await token.grantRole(
         keccak256("MINTER_ROLE"),
         stakingPool.address
       );
       await tx.wait();
+
+      
+      //set setFurFiMintingRewards
+      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      console.log("current timestamp", currentTimeStamp);
+      var tx = await stakingPool.setFurFiMintingRewards(
+        currentTimeStamp + 2592000,
+        currentTimeStamp + 7776000,
+        toBigNum("100000"),
+        toBigNum("10000")
+      )
+      await tx.wait();
+      
     } else {
       stakingPool = StakingPool.attach(deployedAddress.stakingPool);
     }
     console.log("stakingPool", stakingPool.address);
   });
 
-  it("Refferal contract deployment, set role", async () => {
-    Refferal = await ethers.getContractFactory("Referral");
+  it("Referral contract deployment, set role", async () => {
+    Referral = await ethers.getContractFactory("Referral");
     if (!isOnchain) {
-      refferal = await upgrades.deployProxy(Refferal, [
+      referral = await upgrades.deployProxy(Referral, [
         token.address,
         owner.address,
         "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
       ]);
-      await refferal.deployed();
+      await referral.deployed();
       //set role
-      var tx = await refferal.grantRole(
+      var tx = await referral.grantRole(
         keccak256("UPDATER_ROLE"),
         owner.address
       );
       await tx.wait();
-      var tx = await refferal.grantRole(
+      var tx = await referral.grantRole(
         keccak256("PAUSER_ROLE"),
         owner.address
       );
       await tx.wait();
-      //Honey
+      //FurFi
       var tx = await token.grantRole(
         keccak256("MINTER_ROLE"),
-        refferal.address
+        referral.address
       );
       await tx.wait();
     } else {
-      refferal = Refferal.attach(deployedAddress.refferal);
+      referral = Referral.attach(deployedAddress.referral);
     }
-    console.log("refferal", refferal.address);
+    console.log("referral", referral.address);
   });
 
   it("AveragePriceOracle contract deployment, set role", async () => {
@@ -799,7 +812,7 @@ describe("Contract deployment and setting for farming", () => {
       // await averagePriceOracle.deployed();
 
       //set role
-      var tx = await refferal.grantRole(
+      var tx = await referral.grantRole(
         keccak256("PAUSER_ROLE"),
         owner.address
       );
@@ -876,36 +889,36 @@ describe("Contract deployment and setting for farming", () => {
 
   it("(usdc-busd)SDStrategyFurioFinance contract deployment and set ", async () => {
     var SDStrategyFurioFinance = await ethers.getContractFactory("SDStrategyFurioFinance");
-    if (isOnchain) {
+    if (!isOnchain) {
       //for hardhat test
-      // sDStrategyFurioFinance = await upgrades.deployProxy(SDStrategyFurioFinance, [
-      //   owner.address,
-      //   masterChefV2.address,
-      //   stakingPool.address,
-      //   token.address,
-      //   furFi_bnb_lp.address,
-      //   "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
-      //   refferal.address,
-      //   averagePriceOracle.address,
-      //   dex.address,
-      //   "1",
-      // ]);
-      // var tx = await sDStrategyFurioFinance.deployed();
-
-      //**** when deploy on testnet, run one time!  ****//
       sDStrategyFurioFinance = await upgrades.deployProxy(SDStrategyFurioFinance, [
         owner.address,
         masterChefV2.address,
         stakingPool.address,
         token.address,
-        lpAddresses.furFi_bnb_lp,
+        furFi_bnb_lp.address,
         "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
-        refferal.address,
+        referral.address,
         averagePriceOracle.address,
         dex.address,
         "1",
       ]);
-      await sDStrategyFurioFinance.deployed();
+      var tx = await sDStrategyFurioFinance.deployed();
+
+      //**** when deploy on testnet, run one time!  ****//
+      // sDStrategyFurioFinance = await upgrades.deployProxy(SDStrategyFurioFinance, [
+      //   owner.address,
+      //   masterChefV2.address,
+      //   stakingPool.address,
+      //   token.address,
+      //   lpAddresses.furFi_bnb_lp,
+      //   "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
+      //   referral.address,
+      //   averagePriceOracle.address,
+      //   dex.address,
+      //   "1",
+      // ]);
+      // await sDStrategyFurioFinance.deployed();
 
       //set role
       var tx = await sDStrategyFurioFinance.grantRole(
@@ -929,122 +942,122 @@ describe("Contract deployment and setting for farming", () => {
     console.log("sDStrategyFurioFinance", sDStrategyFurioFinance.address);
   });
 
-  // it("set role for (usdc-busd)SDStrategyFurioFinance ", async () => {
-  //   if (!isOnchain) {
-  //     // FurioFinanceToken
-  //     var tx = await token.grantRole(keccak256("MINTER_ROLE"), sDStrategyFurioFinance.address);
-  //     await tx.wait();
-  //     //Staking Pool
-  //     var tx = await stakingPool.grantRole(keccak256("REWARDER_ROLE"), sDStrategyFurioFinance.address);
-  //     await tx.wait();
-  //     //Referral
-  //     var tx = await refferal.grantRole(keccak256("REWARDER_ROLE"), sDStrategyFurioFinance.address);
-  //     await tx.wait();
-  //   }
-  // });
+  it("set role for (usdc-busd)SDStrategyFurioFinance ", async () => {
+    if (!isOnchain) {
+      // FurioFinanceToken
+      var tx = await token.grantRole(keccak256("MINTER_ROLE"), sDStrategyFurioFinance.address);
+      await tx.wait();
+      //Staking Pool
+      var tx = await stakingPool.grantRole(keccak256("REWARDER_ROLE"), sDStrategyFurioFinance.address);
+      await tx.wait();
+      //Referral
+      var tx = await referral.grantRole(keccak256("REWARDER_ROLE"), sDStrategyFurioFinance.address);
+      await tx.wait();
+    }
+  });
 });
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////       test  furiofiStrategy contract            ////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-describe("test", () => {
-  // it("user1 deposit with 2 BNB and 5% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
-  //   if (!isOnchain) {
-  //     var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-  //     // console.log("current timestamp", currentTimeStamp);
-  //     var tx = await sDStrategyFurioFinance.connect(user1).deposit(
-  //         user6.address,
-  //         [wBNB.address, wBNB.address],
-  //         [fakeUSDC.address, fakeBUSD.address],
-  //         [ethers.utils.parseUnits("1", 18), ethers.utils.parseUnits("1", 18)],
-  //         ["1", "1"],
-  //         "5000",
-  //         currentTimeStamp + 10,
-  //         { value: ethers.utils.parseUnits("2", 18) }
-  //       );
-  //     await tx.wait();
-  //   }
-  // });
+// describe("test", () => {
+//   it("user1 deposit with 2 BNB and 5% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
+//     if (!isOnchain) {
+//       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+//       // console.log("current timestamp", currentTimeStamp);
+//       var tx = await sDStrategyFurioFinance.connect(user1).deposit(
+//           user6.address,
+//           [wBNB.address, wBNB.address],
+//           [fakeUSDC.address, fakeBUSD.address],
+//           [ethers.utils.parseUnits("1", 18), ethers.utils.parseUnits("1", 18)],
+//           ["1", "1"],
+//           "5000",
+//           currentTimeStamp + 10,
+//           { value: ethers.utils.parseUnits("2", 18) }
+//         );
+//       await tx.wait();
+//     }
+//   });
 
-  // it("user2 deposit with 5 BNB and 5% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
-  //   if (!isOnchain) {
-  //     var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-  //     var tx = await sDStrategyFurioFinance.connect(user2).deposit(
-  //         user6.address,
-  //         [wBNB.address, wBNB.address],
-  //         [fakeUSDC.address, fakeBUSD.address],
-  //         [
-  //           ethers.utils.parseUnits("2.5", 18),
-  //           ethers.utils.parseUnits("2.5", 18),
-  //         ],
-  //         ["1", "1"],
-  //         "5000",
-  //         currentTimeStamp + 10,
-  //         { value: ethers.utils.parseUnits("5", 18) }
-  //       );
-  //     await tx.wait();
-  //   }
-  // });
+//   it("user2 deposit with 5 BNB and 5% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
+//     if (!isOnchain) {
+//       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+//       var tx = await sDStrategyFurioFinance.connect(user2).deposit(
+//           user6.address,
+//           [wBNB.address, wBNB.address],
+//           [fakeUSDC.address, fakeBUSD.address],
+//           [
+//             ethers.utils.parseUnits("2.5", 18),
+//             ethers.utils.parseUnits("2.5", 18),
+//           ],
+//           ["1", "1"],
+//           "5000",
+//           currentTimeStamp + 10,
+//           { value: ethers.utils.parseUnits("5", 18) }
+//         );
+//       await tx.wait();
+//     }
+//   });
 
-  // it("user2 loan FurFi tokens ", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await sDStrategyFurioFinance.connect(user2).loan();
-  //     await tx.wait();
-  //   }
-  // });
+//   it("user2 loan FurFi tokens ", async () => {
+//     if (!isOnchain) {
+//       var tx = await sDStrategyFurioFinance.connect(user2).loan();
+//       await tx.wait();
+//     }
+//   });
 
-  // it("user1 deposit with 1000 DAI and 10% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await fakeDAI.transfer(user1.address, toBigNum("1000", 18));
-  //     await tx.wait();
-  //     var tx = await fakeDAI.connect(user1).approve(sDStrategyFurioFinance.address, toBigNum("1000", 18));
-  //     await tx.wait();
-  //     var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-  //     var tx = await sDStrategyFurioFinance.connect(user1).depositFromToken(
-  //         fakeDAI.address,
-  //         toBigNum("1000", 18),
-  //         user4.address,
-  //         [fakeDAI.address, fakeDAI.address],
-  //         [wBNB.address, wBNB.address],
-  //         [toBigNum("1000", 18), toBigNum("1000", 18)],
-  //         ["1", "1"],
-  //         "10000",
-  //         currentTimeStamp + 10,
-  //       );
-  //     await tx.wait();
-  //   }
-  // });
+//   it("user1 deposit with 1000 DAI and 10% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
+//     if (!isOnchain) {
+//       var tx = await fakeDAI.transfer(user1.address, toBigNum("1000", 18));
+//       await tx.wait();
+//       var tx = await fakeDAI.connect(user1).approve(sDStrategyFurioFinance.address, toBigNum("1000", 18));
+//       await tx.wait();
+//       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+//       var tx = await sDStrategyFurioFinance.connect(user1).depositFromToken(
+//           fakeDAI.address,
+//           toBigNum("1000", 18),
+//           user4.address,
+//           [fakeDAI.address, fakeDAI.address],
+//           [wBNB.address, wBNB.address],
+//           [toBigNum("1000", 18), toBigNum("1000", 18)],
+//           ["1", "1"],
+//           "10000",
+//           currentTimeStamp + 10,
+//         );
+//       await tx.wait();
+//     }
+//   });
 
-  // it("user3 deposit with 300 USDC and 5% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await fakeUSDC.transfer(user3.address, toBigNum("300", 18));
-  //     await tx.wait();
-  //     var tx = await fakeUSDC.connect(user3).approve(sDStrategyFurioFinance.address, toBigNum("300", 18));
-  //     await tx.wait();
-  //     var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-  //     var tx = await sDStrategyFurioFinance.connect(user3).depositFromToken(
-  //         fakeUSDC.address,
-  //         toBigNum("300", 18),
-  //         user5.address,
-  //         [fakeUSDC.address],
-  //         [fakeBUSD.address],
-  //         [toBigNum("300", 18)],
-  //         ["1"],
-  //         "5000",
-  //         currentTimeStamp + 10,
-  //       );
-  //     await tx.wait();
-  //   }
-  // });
+//   it("user3 deposit with 300 USDC and 5% slippage to (usdc-busd)SDStrategyFurioFinance ", async () => {
+//     if (!isOnchain) {
+//       var tx = await fakeUSDC.transfer(user3.address, toBigNum("300", 18));
+//       await tx.wait();
+//       var tx = await fakeUSDC.connect(user3).approve(sDStrategyFurioFinance.address, toBigNum("300", 18));
+//       await tx.wait();
+//       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+//       var tx = await sDStrategyFurioFinance.connect(user3).depositFromToken(
+//           fakeUSDC.address,
+//           toBigNum("300", 18),
+//           user5.address,
+//           [fakeUSDC.address],
+//           [fakeBUSD.address],
+//           [toBigNum("300", 18)],
+//           ["1"],
+//           "5000",
+//           currentTimeStamp + 10,
+//         );
+//       await tx.wait();
+//     }
+//   });
 
-  // it("user1 Standard Strategy claim furFi token", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await sDStrategyFurioFinance.connect(user1).standardStrategyClaimFurFi();
-  //     await tx.wait();
-  //   }
-  // });
-});
+//   it("user1 Standard Strategy claim furFi token", async () => {
+//     if (!isOnchain) {
+//       var tx = await sDStrategyFurioFinance.connect(user1).standardStrategyClaimFurFi();
+//       await tx.wait();
+//     }
+//   });
+// });
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////       check balances             ////////////////////////////
