@@ -20,19 +20,19 @@ var owner;
 var user1;
 var user2;
 
-var isOnchain = false; //true: bsc testnet, false: hardhat net
+var isOnchain = true; //true: bsc testnet, false: hardhat net
 
 var deployedAddress = {
   exchangeFactory: "0xb7926c0430afb07aa7defde6da862ae0bde767bc",
   wBNB: "0xae13d989dac2f0debff460ac112a837c89baa7cd",
   exchangeRouter: "0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3",
-  token: "0xA3ae030037d2A34875FcA27b79a0f6F014D9F68F",
-  stakingPool: "0x96AAEFCb181BdBb50DD9c152dDf695960F42BAf0",
-
+  token: "0xED72AF99857A9b5bE00A8723321FedC03aC1b256",
+  stakingPool: "0xF1be4C5B67d6A04B84564501727E59E32E761A6F",
+  freezer: "0xb2c81e01334dD41d0C3fD33187dbB59B1497126b"
 };
 
 var lpAddresses = {
-  furFi_bnb_lp: "0x2BedaE042B02F454dEDB6010c3f9478ebCe233ef"
+  furFi_bnb_lp: "0xd734C3D6B79Fc236092Ef87E1ED35786ce2b800C"
 };
 
 /**
@@ -93,34 +93,48 @@ describe("Contracts deploy", () => {
     console.log("Router", exchangeRouter.address);
   });
 
-  it("Token deploy", async () => {
-    Token = await ethers.getContractFactory("FurioFinanceToken");
+  it("FurFiToken deployment, set role", async () => {
+    const Token = await ethers.getContractFactory("FurioFinanceToken");
     if (!isOnchain) {
-      token = await upgrades.deployProxy(Token,["FurioFinanceToken", "$FURFI", toBigNum("10000000", 18), owner.address, "0xC01cbc79644283782BabE262D1C56493d83D6fe2", "0x105F706AB60fcc1F760b1b6cAD331A647272BDCb", "0x56edb7B2AB826B64c26C599C050B909c4d8E1a29", "0x4962B860e02eb883CB02Bd879641f3d637e123fC"]);
+      token = await upgrades.deployProxy(Token, [
+        "FurioFinanceToken",
+        "$FURFI",
+        toBigNum("100000", 18),
+        owner.address,
+        "0xC01cbc79644283782BabE262D1C56493d83D6fe2",
+        "0x105F706AB60fcc1F760b1b6cAD331A647272BDCb",
+        "0x56edb7B2AB826B64c26C599C050B909c4d8E1a29",
+        "0x4962B860e02eb883CB02Bd879641f3d637e123fC",
+      ]);
       await token.deployed();
-    }
-    else{
+      //set role
+      var tx = await token.grantRole(keccak256("UPDATER_ROLE"), owner.address);
+      await tx.wait();
+      var tx = await token.grantRole(keccak256("PAUSER_ROLE"), owner.address);
+      await tx.wait();
+    } else {
       token = Token.attach(deployedAddress.token);
     }
     console.log("token", token.address);
   });
 
+
   it("creat BNB-FurFiToken pool", async () => {
     if (!isOnchain) {
       var tx = await token.approve(
         exchangeRouter.address,
-        toBigNum("5000000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         token.address,
-        toBigNum("5000000", 18),
+        toBigNum("10000", 18),
         0,
         0,
         owner.address,
         "1234325432314321",
-        { value: ethers.utils.parseUnits("0.5", 18) }
+        { value: ethers.utils.parseUnits("8", 18) }
       );
       await tx.wait();
 
@@ -133,7 +147,7 @@ describe("Contracts deploy", () => {
   });
 
   it("StakingPool contract deployment, set role", async () => {
-    StakingPool = await ethers.getContractFactory("StakingPool");
+    const StakingPool = await ethers.getContractFactory("StakingPool");
     if (!isOnchain) {
       //for hardhat test
       stakingPool = await upgrades.deployProxy(StakingPool, [
@@ -172,16 +186,16 @@ describe("Contracts deploy", () => {
       await tx.wait();
 
       
-      //set setFurFiMintingRewards
-      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-      console.log("current timestamp", currentTimeStamp);
-      var tx = await stakingPool.setFurFiMintingRewards(
-        currentTimeStamp + 2592000,
-        currentTimeStamp + 7776000,
-        toBigNum("100000"),
-        toBigNum("10000")
-      )
-      await tx.wait();
+      // //set setFurFiMintingRewards -- important !!!
+      // var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      // console.log("current timestamp", currentTimeStamp);
+      // var tx = await stakingPool.setFurFiMintingRewards(
+      //   currentTimeStamp + 2592000,
+      //   currentTimeStamp + 7776000,
+      //   toBigNum("100000"),
+      //   toBigNum("10000")
+      // )
+      // await tx.wait();
       
     } else {
       stakingPool = StakingPool.attach(deployedAddress.stakingPool);
@@ -190,7 +204,7 @@ describe("Contracts deploy", () => {
   });
 
   it("Freezer deploy", async () => {
-    Freezer = await ethers.getContractFactory("Freezer");
+    const Freezer = await ethers.getContractFactory("Freezer");
     if (!isOnchain) {
       freezer = await upgrades.deployProxy(Freezer,[token.address, stakingPool.address, owner.address]);
       await freezer.deployed();
@@ -200,6 +214,11 @@ describe("Contracts deploy", () => {
         owner.address
       );
       await tx.wait();
+
+      // FurioFinanceToken
+      var tx = await token.grantRole(keccak256("MINTER_ROLE"), freezer.address);
+      await tx.wait();
+
     }
     else{
         freezer = Freezer.attach(deployedAddress.freezer);
@@ -207,13 +226,6 @@ describe("Contracts deploy", () => {
     console.log("freezer", freezer.address);
   });
 
-  it("set role for token ", async () => {
-    if (!isOnchain) {
-      // FurioFinanceToken
-      var tx = await token.grantRole(keccak256("MINTER_ROLE"), freezer.address);
-      await tx.wait();
-    }
-  });
 
 });
 
@@ -221,64 +233,74 @@ describe("Contracts deploy", () => {
 /////////////////////////////////////////     test  ///////////////////////////////////////////////////
 
 describe("test ", () => {
-    it("check initial balances", async () => {
-        await checkBNBBalance();
-        await checkTokenBalance();
-    });
-  
-    it("user1 freeze 1000 FURFI, a month", async () => {
-        var tx = await token.transfer(user1.address, toBigNum("1000"));
+  // it("check initial balances", async () => {
+  //     await checkBNBBalance();
+  //     await checkTokenBalance();
+  // });
+
+  it("user1 freeze 100 FURFI, a month", async () => {
+    if (!isOnchain) {
+        var tx = await token.transfer(user1.address, toBigNum("100"));
         await tx.wait();
 
-        var tx = await token.connect(user1).approve(freezer.address, toBigNum("1000"));
+        var tx = await token.connect(user1).approve(freezer.address, toBigNum("100"));
         await tx.wait();
 
-        var tx = await freezer.connect(user1).freeze(toBigNum("1000"), 0);
+        var tx = await freezer.connect(user1).freeze(toBigNum("100"), 0);
         await tx.wait();
-    })
-
-    it("user1 freeze 2000 FURFI, three months", async () => {
-        var tx = await token.transfer(user1.address, toBigNum("2000"));
-        await tx.wait();
-
-        var tx = await token.connect(user1).approve(freezer.address, toBigNum("2000"));
-        await tx.wait();
-
-        var tx = await freezer.connect(user1).freeze(toBigNum("2000"), 1);
-        await tx.wait();
-    })
-
-    it("user2 freeze 4000 FURFI, six months", async () => {
-        var tx = await token.transfer(user2.address, toBigNum("4000"));
-        await tx.wait();
-
-        var tx = await token.connect(user2).approve(freezer.address, toBigNum("4000"));
-        await tx.wait();
-
-        var tx = await freezer.connect(user2).freeze(toBigNum("4000"), 2);
-        await tx.wait();
-    })
-
-    it("check freeze amounts, a month", async () => {
-        let data  = await freezer.getParticipant(user1.address, 2);
-
-        console.log("user1 data", data);
-    })
-
-    it("user1 claim pending reward", async () => {
-      var tx = await freezer.connect(user1).claimPendingRewards(2);
-      await tx.wait();
+    }
   })
 
-    it("user1 unfreeze two month", async () => {
-        await network.provider.send("evm_increaseTime", [7776000]);
-        await network.provider.send("evm_mine");
-
-        var tx = await freezer.connect(user1).unfreeze(2);
+  it("user1 freeze 200 FURFI, three months", async () => {
+    if (!isOnchain) {
+        var tx = await token.transfer(user1.address, toBigNum("200"));
         await tx.wait();
-    })
+
+        var tx = await token.connect(user1).approve(freezer.address, toBigNum("200"));
+        await tx.wait();
+
+        var tx = await freezer.connect(user1).freeze(toBigNum("200"), 1);
+        await tx.wait();
+    }
+  })
+
+  it("user2 freeze 40 FURFI, six months", async () => {
+    if (!isOnchain) {
+      var tx = await token.transfer(user2.address, toBigNum("40"));
+      await tx.wait();
+
+      var tx = await token.connect(user2).approve(freezer.address, toBigNum("40"));
+      await tx.wait();
+
+      var tx = await freezer.connect(user2).freeze(toBigNum("40"), 2);
+      await tx.wait();
+    }
+  })
+
+  // it("check freeze amounts, a month", async () => {
+  //     let data  = await freezer.getParticipant(user1.address, 2);
+  //     console.log("user1 data", data);
+  // })
+
+  it("user1 claim pending reward", async () => {
+    if (!isOnchain) {
+      var tx = await freezer.connect(user1).claimPendingRewards(2);
+      await tx.wait();
+    }
+  })
+
+  it("user1 unfreeze two month", async () => {
+    if (!isOnchain) {
+      // await network.provider.send("evm_increaseTime", [7776000]);
+      // await network.provider.send("evm_mine");
+
+      var tx = await freezer.connect(user1).unfreeze(2);
+      await tx.wait();
+    }
+  })
   
-  });
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 

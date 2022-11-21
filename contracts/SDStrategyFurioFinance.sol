@@ -199,7 +199,7 @@ contract SDStrategyFurioFinance is
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
 
-        uint256 repayalAmount = getRepayalAmount(amount);
+        uint256 repayalAmount = getRepayalAmount(msg.sender, amount);
         //repayment some loaned token
         if(repayalAmount > 0)
         {
@@ -279,7 +279,7 @@ contract SDStrategyFurioFinance is
         require(deadline > block.timestamp, "DE");
         DEX.checkSlippage(fromToken, toToken, amountIn, amountOut, slippage);
 
-        uint256 repayalAmount = getRepayalAmount(amount);
+        uint256 repayalAmount = getRepayalAmount(msg.sender, amount);
         //repayment some loaned token
         if(repayalAmount > 0)
         {
@@ -630,16 +630,17 @@ contract SDStrategyFurioFinance is
     }
 
     /// @notice return FurFi amount that staker have to repayment to withdraw some staking amount
+    /// @param participant The address of the participant
     /// @param withdrawalAmount The lp amount that staker are going to withdraw
     /// @return  repayalAmount
-    function getRepayalAmount(uint256 withdrawalAmount)
+    function getRepayalAmount(address participant, uint256 withdrawalAmount)
         public
         view
         returns (uint256 repayalAmount)
     {
         uint256 currentDeposits = getStandardStrategyBalance();
         if(currentDeposits == 0) return 0;
-        return LoanParticipantData[msg.sender].loanedAmount * withdrawalAmount / currentDeposits;
+        return LoanParticipantData[participant].loanedAmount * withdrawalAmount / currentDeposits;
 
     }
     uint256[49] private __gap;

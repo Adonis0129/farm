@@ -45,40 +45,39 @@ var user4;
 var user5;
 var user6;
 
-var isOnchain = false; //true: bsc testnet, false: hardhat net
+var isOnchain = true; //true: bsc testnet, false: hardhat net
 
 var deployedAddress = {
   exchangeFactory: "0xb7926c0430afb07aa7defde6da862ae0bde767bc",
   wBNB: "0xae13d989dac2f0debff460ac112a837c89baa7cd",
   exchangeRouter: "0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3",
-  fakeUSDC: "0x7F8CE1b5486F24cd4e5CB98e78d306cD71Ea337b",
-  fakeUSDT: "0x60c83C6D100C916069B230167c37358dC2997083",
-  fakeBUSD: "0x4F796eF3c2e25aFe1746311f81E3142E27F75Bb8",
-  fakeDAI: "0x87CbE425044Cc022D14bf419301B5a455c9Be410",
-  cake: "0xCF625aAb4B709C03e81BB83135E2113a76b21eF6",
-  syrup: "0x301B1b38650824e9FfbF55d558BE81BcebA66Cd8",
-  masterChef: "0xee6F7CDFC42DBc2a496bAdc9AeC5d304dE8BB9b8",
-  masterChefV2: "0x26A68F58D8FB1aaebb3C2091D6e3fB1118e4e1E5",
-  token: "0xA3ae030037d2A34875FcA27b79a0f6F014D9F68F",
-  stakingPool: "0x96AAEFCb181BdBb50DD9c152dDf695960F42BAf0",
-  referral: "0xe9662E7203467F8b60D140bF8bd777915218Cdb5",
-  averagePriceOracle: "0xcfb319ae38303ed670D0E358Eb4490A3cA54C064",
-  dex: "0x69708f2CE6ef418ff80cA66341B51659603E531D",
-  fFStrategyFurioFinance: "0x5E8c8C0615e2Ec15Aedb24A3f6Cee1a76c49Db71",
+  fakeUSDC: "0x9555f469d2Fc19Fa85D0B6184C3685950DC99291",
+  fakeUSDT: "0xad612cA832FAe1A1224795046454E1A351703483",
+  fakeBUSD: "0x1092fd5A7d29bE377678a516895c6F9d9A773572",
+  fakeDAI: "0x6d0893eE9FeAA890981Ed721569e8c82356E88b0",
+  cake: "0xCDf430577fA8b4Bc680324BFDD1d8CAEE7c33003",
+  syrup: "0x38B37AC7378C09eA4BB7dd0397685229F6e77DEC",
+  masterChef: "0x28ba30Fd29d15A0BBe62C0398936526eC1841A7a",
+  masterChefV2: "0x72c6a7DdDe57F1CF00B54725BAccd3ffe98D0AAF",
+  token: "0xED72AF99857A9b5bE00A8723321FedC03aC1b256",
+  stakingPool: "0xF1be4C5B67d6A04B84564501727E59E32E761A6F",
+  referral: "0x5cE6fc3D7a0b54E6A72E5E539DB63f4E137fa672",
+  averagePriceOracle: "0xd0c8C92EF231B9d7E88a50659080523B7A8547A7",
+  dex: "0xd18b9470750779Fc7d0715d6F88e0fF5B81400dD",
+  fFStrategyFurioFinance: "0x5c006524222C0f6750aaA17eE7842C19ce5A3846",
 };
 
 var lpAddresses = {
-  bnb_cake_lp: "0x4F7Cc5657E7f81B017b4Ef797A892a706C199dd1",
-  usdc_busd_lp: "0xA1c75D3b1de4927141A9363F15df2cEF10ca0F9c",
-  usdc_usdt_lp: "0x8602c9dAbDD2C73F57D6563a398D252a2f7c1557",
-  dai_busd_lp: "0xe62142f6E36EFE523C1aF36a21656a9e6fd7117c",
-  usdt_busd_lp: "0x0CCcDf4880fBF43251a376e2e633Dffe30a8A40a",
-
-  bnb_usdc_lp: "0x0dA7F314aF09Ac11B5621EfAF3893112225d5F63",
-  bnb_usdt_lp: "0x47E7cC2F542FFC235b9BEe09B38afCc963E3406c",
-  bnb_busd_lp: "0xdeEE7074F2F6884D13E791e69Aa7B2C9D87B3EfE",
-  bnb_dai_lp: "0x55962eaC3cfF89235140df27FF22DF1Be8B5b59B",
-  furFi_bnb_lp: "0x2BedaE042B02F454dEDB6010c3f9478ebCe233ef",
+  bnb_cake_lp: "0x41b6Ab436e5Ed6B5aDbfe1Bb220EB17bE5dEf73b",
+  bnb_usdc_lp: "0x7B6e44e243FedF902D9F3CDe3dD3C8a90edc4B55",
+  bnb_usdt_lp: "0x82A0b98a0d12bBf3474B8CcF60CF780B53012C66",
+  bnb_busd_lp: "0xB3cC546096fe2642756F1cf2258b62B59E7A34Da",
+  bnb_dai_lp: "0x02015C0ef18a3a43612b3c652a69E03004eb9e33",
+  usdc_busd_lp: "0x24DB5611a646913D65202F7Ebc8654EA3304eEbE",
+  usdc_usdt_lp: "0x72ec0F3525A7c7E8F84C87c2486D0d2d928615f8",
+  dai_busd_lp: "0x8fdf0418827865c2a12957B22Ea667520E1f6295",
+  usdt_busd_lp: "0x1A4113e0fe65B7Da5cC110ab96a6Be3467Ea772b",
+  furFi_bnb_lp: "0xd734C3D6B79Fc236092Ef87E1ED35786ce2b800C",
 };
 
 /** For token deployment
@@ -196,7 +195,7 @@ describe("Dex contracts deployment", () => {
 ///////////////////////////////       Stable tokens deplyment          //////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-describe(" stable tokens deployment", () => {
+describe(" stable coins deployment", () => {
   it("FakeUSDC deployment", async () => {
     const FakeUSDC = await ethers.getContractFactory("FakeUsdc");
     if (!isOnchain) {
@@ -271,23 +270,23 @@ describe(" stable tokens deployment", () => {
 describe("Pancakeswap evironment building", () => {
   it("create BNB-CAKE pool", async () => {
     if (!isOnchain) {
-      var tx = await cake.mint(owner.address, toBigNum("460000", 18));
+      var tx = await cake.mint(owner.address, toBigNum("10000", 18));
       await tx.wait();
 
       var tx = await cake.approve(
         exchangeRouter.address,
-        toBigNum("460000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         cake.address,
-        toBigNum("460000", 18),
+        toBigNum("10000", 18),
         0,
         0,
         owner.address,
         "1234325432314321",
-        { value: ethers.utils.parseUnits("0.5", 18) }
+        { value: ethers.utils.parseUnits("1.4", 18) }
       );
       await tx.wait();
 
@@ -303,13 +302,13 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeUSDC.approve(
         exchangeRouter.address,
-        toBigNum("10000", 18)
+        toBigNum("13000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         fakeUSDC.address,
-        toBigNum("10000", 18),
+        toBigNum("13000", 18),
         0,
         0,
         owner.address,
@@ -330,13 +329,13 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeUSDT.approve(
         exchangeRouter.address,
-        toBigNum("13850000", 8)
+        toBigNum("13000", 6)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         fakeUSDT.address,
-        toBigNum("13850000", 8),
+        toBigNum("13000", 6),
         0,
         0,
         owner.address,
@@ -357,13 +356,13 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeBUSD.approve(
         exchangeRouter.address,
-        toBigNum("13850000", 18)
+        toBigNum("13000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         fakeBUSD.address,
-        toBigNum("13850000", 18),
+        toBigNum("13000", 18),
         0,
         0,
         owner.address,
@@ -384,13 +383,13 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeDAI.approve(
         exchangeRouter.address,
-        toBigNum("13850000", 18)
+        toBigNum("13000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         fakeDAI.address,
-        toBigNum("13850000", 18),
+        toBigNum("13000", 18),
         0,
         0,
         owner.address,
@@ -411,21 +410,21 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeUSDC.approve(
         exchangeRouter.address,
-        toBigNum("1000000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await fakeBUSD.approve(
         exchangeRouter.address,
-        toBigNum("1000000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidity(
         fakeUSDC.address,
         fakeBUSD.address,
-        toBigNum("1000000", 18),
-        toBigNum("1000000", 18),
+        toBigNum("10000", 18),
+        toBigNum("10000", 18),
         0,
         0,
         owner.address,
@@ -448,21 +447,21 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeUSDC.approve(
         exchangeRouter.address,
-        toBigNum("100000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await fakeUSDT.approve(
         exchangeRouter.address,
-        toBigNum("100000", 6)
+        toBigNum("10000", 6)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidity(
         fakeUSDC.address,
         fakeUSDT.address,
-        toBigNum("100000", 18),
-        toBigNum("100000", 6),
+        toBigNum("10000", 18),
+        toBigNum("10000", 6),
         0,
         0,
         owner.address,
@@ -485,21 +484,21 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeDAI.approve(
         exchangeRouter.address,
-        toBigNum("1000000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await fakeBUSD.approve(
         exchangeRouter.address,
-        toBigNum("1000000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidity(
         fakeDAI.address,
         fakeBUSD.address,
-        toBigNum("1000000", 18),
-        toBigNum("1000000", 18),
+        toBigNum("10000", 18),
+        toBigNum("10000", 18),
         0,
         0,
         owner.address,
@@ -522,21 +521,21 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeUSDT.approve(
         exchangeRouter.address,
-        toBigNum("1000000", 8)
+        toBigNum("10000", 6)
       );
       await tx.wait();
 
       var tx = await fakeBUSD.approve(
         exchangeRouter.address,
-        toBigNum("1000000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidity(
         fakeUSDT.address,
         fakeBUSD.address,
-        toBigNum("1000000", 8),
-        toBigNum("1000000", 18),
+        toBigNum("10000", 6),
+        toBigNum("10000", 18),
         0,
         0,
         owner.address,
@@ -652,12 +651,12 @@ describe("Pancakeswap evironment building", () => {
 // /////////////////////////////////////////////////////////////////////////////////////////////////
 describe("Contract deployment and setting for farming", () => {
   it("FurFiToken deployment, set role", async () => {
-    Token = await ethers.getContractFactory("FurioFinanceToken");
+    const Token = await ethers.getContractFactory("FurioFinanceToken");
     if (!isOnchain) {
       token = await upgrades.deployProxy(Token, [
         "FurioFinanceToken",
         "$FURFI",
-        toBigNum("10000000", 18),
+        toBigNum("100000", 18),
         owner.address,
         "0xC01cbc79644283782BabE262D1C56493d83D6fe2",
         "0x105F706AB60fcc1F760b1b6cAD331A647272BDCb",
@@ -680,18 +679,18 @@ describe("Contract deployment and setting for farming", () => {
     if (!isOnchain) {
       var tx = await token.approve(
         exchangeRouter.address,
-        toBigNum("5000000", 18)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         token.address,
-        toBigNum("5000000", 18),
+        toBigNum("10000", 18),
         0,
         0,
         owner.address,
         "1234325432314321",
-        { value: ethers.utils.parseUnits("0.5", 18) }
+        { value: ethers.utils.parseUnits("8", 18) }
       );
       await tx.wait();
 
@@ -704,7 +703,7 @@ describe("Contract deployment and setting for farming", () => {
   });
 
   it("StakingPool contract deployment, set role", async () => {
-    StakingPool = await ethers.getContractFactory("StakingPool");
+    const StakingPool = await ethers.getContractFactory("StakingPool");
     if (!isOnchain) {
       //for hardhat test
       stakingPool = await upgrades.deployProxy(StakingPool, [
@@ -743,16 +742,16 @@ describe("Contract deployment and setting for farming", () => {
       await tx.wait();
 
       
-      //set setFurFiMintingRewards
-      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-      console.log("current timestamp", currentTimeStamp);
-      var tx = await stakingPool.setFurFiMintingRewards(
-        currentTimeStamp + 2592000,
-        currentTimeStamp + 7776000,
-        toBigNum("100000"),
-        toBigNum("10000")
-      )
-      await tx.wait();
+      // //set setFurFiMintingRewards -- important !!!
+      // var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      // console.log("current timestamp", currentTimeStamp);
+      // var tx = await stakingPool.setFurFiMintingRewards(
+      //   currentTimeStamp + 2592000,
+      //   currentTimeStamp + 7776000,
+      //   toBigNum("100000"),
+      //   toBigNum("10000")
+      // )
+      // await tx.wait();
       
     } else {
       stakingPool = StakingPool.attach(deployedAddress.stakingPool);
@@ -761,7 +760,7 @@ describe("Contract deployment and setting for farming", () => {
   });
 
   it("Referral contract deployment, set role", async () => {
-    Referral = await ethers.getContractFactory("Referral");
+    const Referral = await ethers.getContractFactory("Referral");
     if (!isOnchain) {
       referral = await upgrades.deployProxy(Referral, [
         token.address,
@@ -793,7 +792,7 @@ describe("Contract deployment and setting for farming", () => {
   });
 
   it("AveragePriceOracle contract deployment, set role", async () => {
-    AveragePriceOracle = await ethers.getContractFactory("AveragePriceOracle");
+    const AveragePriceOracle = await ethers.getContractFactory("AveragePriceOracle");
     if (!isOnchain) {
       //for hardhat test
       averagePriceOracle = await upgrades.deployProxy(AveragePriceOracle, [
@@ -826,7 +825,7 @@ describe("Contract deployment and setting for farming", () => {
   });
 
   it("DEX contract deployment, set role and path", async () => {
-    DEX = await ethers.getContractFactory("DEX");
+    const DEX = await ethers.getContractFactory("DEX");
     if (!isOnchain) {
       dex = await upgrades.deployProxy(DEX, [
         exchangeRouter.address,
@@ -888,7 +887,7 @@ describe("Contract deployment and setting for farming", () => {
   });
 
   it("(usdc-busd)FFStrategyFurioFinance contract deployment and set ", async () => {
-    var FFStrategyFurioFinance = await ethers.getContractFactory("FFStrategyFurioFinance");
+    const FFStrategyFurioFinance = await ethers.getContractFactory("FFStrategyFurioFinance");
     if (!isOnchain) {
       //for hardhat test
       fFStrategyFurioFinance = await upgrades.deployProxy(FFStrategyFurioFinance, [
@@ -936,14 +935,8 @@ describe("Contract deployment and setting for farming", () => {
       //set restakeThreshold
       var tx = await fFStrategyFurioFinance.updateRestakeThreshold("0");
       await tx.wait();
-    } else {
-      fFStrategyFurioFinance = FFStrategyFurioFinance.attach(deployedAddress.fFStrategyFurioFinance);
-    }
-    console.log("fFStrategyFurioFinance", fFStrategyFurioFinance.address);
-  });
 
-  it("set role for (usdc-busd)FFStrategyFurioFinance ", async () => {
-    if (!isOnchain) {
+
       // FurioFinanceToken
       var tx = await token.grantRole(keccak256("MINTER_ROLE"), fFStrategyFurioFinance.address);
       await tx.wait();
@@ -953,12 +946,18 @@ describe("Contract deployment and setting for farming", () => {
       //Referral
       var tx = await referral.grantRole(keccak256("REWARDER_ROLE"), fFStrategyFurioFinance.address);
       await tx.wait();
+
+    } else {
+      fFStrategyFurioFinance = FFStrategyFurioFinance.attach(deployedAddress.fFStrategyFurioFinance);
     }
+    console.log("fFStrategyFurioFinance", fFStrategyFurioFinance.address);
   });
+
+
 });
 
 /////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////       test  furiofiStrategy contract            ////////////////////////////
+///////////////////////////////       test  furiofiStrategy contract            /////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 describe("test", () => {
@@ -983,24 +982,6 @@ describe("test", () => {
   it("user1 loan FurFi tokens ", async () => {
     if (!isOnchain) {
       var tx = await fFStrategyFurioFinance.connect(user1).loan();
-      await tx.wait();
-    }
-  });
-
-  it("user1 withdraw All tokens  ", async () => {
-    if (!isOnchain) {
-      var tx = await token.connect(user1).approve(fFStrategyFurioFinance.address, token.balanceOf(user1.address));
-      await tx.wait();
-
-      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-      var tx = await fFStrategyFurioFinance.connect(user1).withdrawAll(
-          [wBNB.address, wBNB.address],
-          [fakeUSDC.address, fakeBUSD.address],
-          [ethers.utils.parseUnits("0.02", 18), ethers.utils.parseUnits("0.02", 18)],
-          ["1", "1"],
-          "10000",
-          currentTimeStamp + 10,
-      );
       await tx.wait();
     }
   });
@@ -1032,6 +1013,8 @@ describe("test", () => {
     }
   });
 
+
+
   it("user3 deposit with 0.01 BNB and 5% slippage to (usdc-busd)FFStrategyFurioFinance ", async () => {
     if (!isOnchain) {
       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
@@ -1059,16 +1042,20 @@ describe("test", () => {
     }
   });
 
-
-  it("user2 withdraw 17 lp  ", async () => {
+  it("Check FurFi balances", async () => {
     if (!isOnchain) {
+      await checkFurFiBalance();
+    }
+  })
 
-      var tx = await token.connect(user2).approve(fFStrategyFurioFinance.address, token.balanceOf(user2.address));
+
+  it("user1 withdraw All tokens  ", async () => {
+    if (!isOnchain) {
+      var tx = await token.connect(user1).approve(fFStrategyFurioFinance.address, token.balanceOf(user1.address));
       await tx.wait();
 
       var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-      var tx = await fFStrategyFurioFinance.connect(user2).withdraw(
-          toBigNum("17", 18),
+      var tx = await fFStrategyFurioFinance.connect(user1).withdrawAll(
           [wBNB.address, wBNB.address],
           [fakeUSDC.address, fakeBUSD.address],
           [ethers.utils.parseUnits("0.02", 18), ethers.utils.parseUnits("0.02", 18)],
@@ -1080,75 +1067,85 @@ describe("test", () => {
     }
   });
 
+  it("Check user2 staked lp balance", async () => {
+    if (!isOnchain) {
+        var amount = await fFStrategyFurioFinance.connect(user2).getFuriofiStrategyBalance(user2.address);
+        console.log("amount", amount);
+    }
+  })
 
-  
-  // it("user3 withdraw All tokens  ", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await token.connect(user3).approve(fFStrategyFurioFinance.address, token.balanceOf(user3.address));
-  //     await tx.wait();
+  it("user2 withdraw 100 lp  ", async () => {
+    if (!isOnchain) {
 
-  //     var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-  //     var tx = await fFStrategyFurioFinance.connect(user3).withdrawAll(
-  //         [wBNB.address, wBNB.address],
-  //         [fakeUSDC.address, fakeBUSD.address],
-  //         [ethers.utils.parseUnits("0.01", 18), ethers.utils.parseUnits("0.01", 18)],
-  //         ["1", "1"],
-  //         "5000",
-  //         currentTimeStamp + 10,
-  //     );
-  //     await tx.wait();
-  //   }
-  // });
-  // it("user1 deposit with 1000 DAI and 10% slippage to (usdc-busd)FFStrategyFurioFinance ", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await fakeDAI.transfer(user1.address, toBigNum("1000", 18));
-  //     await tx.wait();
-  //     var tx = await fakeDAI.connect(user1).approve(fFStrategyFurioFinance.address, toBigNum("1000", 18));
-  //     await tx.wait();
-  //     var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-  //     var tx = await fFStrategyFurioFinance.connect(user1).depositFromToken(
-  //         fakeDAI.address,
-  //         toBigNum("1000", 18),
-  //         user4.address,
-  //         [fakeDAI.address, fakeDAI.address],
-  //         [wBNB.address, wBNB.address],
-  //         [toBigNum("1000", 18), toBigNum("1000", 18)],
-  //         ["1", "1"],
-  //         "10000",
-  //         currentTimeStamp + 10,
-  //       );
-  //     await tx.wait();
-  //   }
-  // });
+      var tx = await token.connect(user2).approve(fFStrategyFurioFinance.address, token.balanceOf(user2.address));
+      await tx.wait();
 
-  // it("user3 deposit with 300 USDC and 5% slippage to (usdc-busd)FFStrategyFurioFinance ", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await fakeUSDC.transfer(user3.address, toBigNum("300", 18));
-  //     await tx.wait();
-  //     var tx = await fakeUSDC.connect(user3).approve(fFStrategyFurioFinance.address, toBigNum("300", 18));
-  //     await tx.wait();
-  //     var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
-  //     var tx = await fFStrategyFurioFinance.connect(user3).depositFromToken(
-  //         fakeUSDC.address,
-  //         toBigNum("300", 18),
-  //         user5.address,
-  //         [fakeUSDC.address],
-  //         [fakeBUSD.address],
-  //         [toBigNum("300", 18)],
-  //         ["1"],
-  //         "5000",
-  //         currentTimeStamp + 10,
-  //       );
-  //     await tx.wait();
-  //   }
-  // });
+      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      var tx = await fFStrategyFurioFinance.connect(user2).withdraw(
+          toBigNum("100", 18),
+          [wBNB.address, wBNB.address],
+          [fakeUSDC.address, fakeBUSD.address],
+          [ethers.utils.parseUnits("0.02", 18), ethers.utils.parseUnits("0.02", 18)],
+          ["1", "1"],
+          "10000",
+          currentTimeStamp + 10,
+      );
+      await tx.wait();
+    }
+  });
 
-  // it("user1 furiofi Strategy claim furFi token", async () => {
-  //   if (!isOnchain) {
-  //     var tx = await fFStrategyFurioFinance.connect(user1).furiofiStrategyClaimFurFi();
-  //     await tx.wait();
-  //   }
-  // });
+  it("user1 deposit with 100 DAI and 10% slippage to (usdc-busd)FFStrategyFurioFinance ", async () => {
+    if (!isOnchain) {
+      var tx = await fakeDAI.transfer(user1.address, toBigNum("100", 18));
+      await tx.wait();
+      var tx = await fakeDAI.connect(user1).approve(fFStrategyFurioFinance.address, toBigNum("100", 18));
+      await tx.wait();
+      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      var tx = await fFStrategyFurioFinance.connect(user1).depositFromToken(
+          fakeDAI.address,
+          toBigNum("100", 18),
+          user4.address,
+          [fakeDAI.address, fakeDAI.address],
+          [wBNB.address, wBNB.address],
+          [toBigNum("100", 18), toBigNum("100", 18)],
+          ["1", "1"],
+          "10000",
+          currentTimeStamp + 10,
+        );
+      await tx.wait();
+    }
+  });
+
+  it("user3 deposit with 300 USDC and 5% slippage to (usdc-busd)FFStrategyFurioFinance ", async () => {
+    if (!isOnchain) {
+      var tx = await fakeUSDC.transfer(user3.address, toBigNum("300", 18));
+      await tx.wait();
+      var tx = await fakeUSDC.connect(user3).approve(fFStrategyFurioFinance.address, toBigNum("300", 18));
+      await tx.wait();
+      var currentTimeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      var tx = await fFStrategyFurioFinance.connect(user3).depositFromToken(
+          fakeUSDC.address,
+          toBigNum("300", 18),
+          user5.address,
+          [fakeUSDC.address],
+          [fakeBUSD.address],
+          [toBigNum("300", 18)],
+          ["1"],
+          "5000",
+          currentTimeStamp + 10,
+        );
+      await tx.wait();
+    }
+  });
+
+  it("user1 furiofi Strategy claim furFi token", async () => {
+    if (!isOnchain) {
+      var tx = await fFStrategyFurioFinance.connect(user1).furiofiStrategyClaimFurFi();
+      await tx.wait();
+    }
+  });
+
+
 });
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -1160,4 +1157,8 @@ const checkBNBBalance = async () => {
 
 const checkFurFiBalance = async () => {
   console.log("owner FurFi balance", fromBigNum(await token.balanceOf(owner.address), 18));
+  console.log("user1 FurFi balance", fromBigNum(await token.balanceOf(user1.address), 18));
+  console.log("user2 FurFi balance", fromBigNum(await token.balanceOf(user2.address), 18));
+  console.log("user3 FurFi balance", fromBigNum(await token.balanceOf(user3.address), 18));
+
 };

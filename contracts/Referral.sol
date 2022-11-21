@@ -20,7 +20,7 @@ contract Referral is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-        struct ReferralGiver {
+    struct ReferralGiver {
         uint256 deposit;
         uint256 reward;
         uint256 rewardMask;
@@ -175,10 +175,7 @@ contract Referral is
     override
     whenNotPaused
     {
-        uint256 _currentReferralReward = getReferralRewards(
-        _poolAddress,
-        msg.sender
-    );
+        uint256 _currentReferralReward = getReferralRewards(_poolAddress, msg.sender);
 
         require(_amount <= _currentReferralReward, "Withdraw amount too large");
 
@@ -249,13 +246,8 @@ contract Referral is
     view
     returns(uint256)
     {
-        uint256 currentReferralRewards = getReferralRewards(
-        _poolAddress,
-        _referralGiver
-    ) * 1;
-        uint256 claimedReferralRewards = referralGivers[_poolAddress][
-            _referralGiver
-        ].claimedRewards;
+        uint256 currentReferralRewards = getReferralRewards( _poolAddress, _referralGiver);
+        uint256 claimedReferralRewards = referralGivers[_poolAddress][_referralGiver].claimedRewards;
         return currentReferralRewards + claimedReferralRewards;
     }
 
@@ -266,10 +258,7 @@ contract Referral is
     function updatePendingRewards(address _poolAddress, address _referralGiver)
     internal
     {
-        uint256 _currentReferralReward = getReferralRewards(
-        _poolAddress,
-        _referralGiver
-    );
+        uint256 _currentReferralReward = getReferralRewards(_poolAddress, _referralGiver);
         referralGivers[_poolAddress][_referralGiver]
             .reward = _currentReferralReward;
         referralGivers[_poolAddress][_referralGiver].rewardMask = roundMasks[

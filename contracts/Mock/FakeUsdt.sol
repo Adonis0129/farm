@@ -235,7 +235,7 @@ contract FakeUsdt is Context, IERC20, Mintable {
 		_name = "Fake USDT";
 		_symbol = "USDT";
 		_decimals = 6;
-		_totalSupply = 350000000000*10**6;
+		_totalSupply = 100000*10**6;
 		_balances[msg.sender] = _totalSupply;
 		emit Transfer(address(0), msg.sender, _totalSupply);
 	}

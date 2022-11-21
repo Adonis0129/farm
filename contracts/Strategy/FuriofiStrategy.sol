@@ -193,15 +193,11 @@ abstract contract FuriofiStrategy is Initializable, BaseConfig {
 
         participantData[msg.sender].lpMask = lpRoundMask;
 
-        uint256 pendingAdditionalFurFi = participantData[msg.sender]
-            .pendingAdditionalFurFi +
-            ((additionalFurFiRoundMask -
-                participantData[msg.sender].additionalFurFiMask) *
-                participantData[msg.sender].amount) /
+        uint256 pendingAdditionalFurFi = participantData[msg.sender].pendingAdditionalFurFi +
+            ((additionalFurFiRoundMask - participantData[msg.sender].additionalFurFiMask) * participantData[msg.sender].amount) /
             DECIMAL_OFFSET;
 
-        participantData[msg.sender]
-            .additionalFurFiMask = additionalFurFiRoundMask;
+        participantData[msg.sender].additionalFurFiMask = additionalFurFiRoundMask;
 
         uint256 _claimedFurFi = 0;
         uint256 _claimedBnb = 0;

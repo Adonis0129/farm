@@ -26,7 +26,7 @@ async function main() {
       referralAddress, //referral contract address
       averagePriceOracleAddress, //averagePriceOracle contract address
       dexAddress, //dex contract address
-      "4", //pid in masterChef
+      "1", //pid in masterChef
     ]
   );
   await sCStrategyFurioFinance.deployed();
