@@ -953,7 +953,6 @@ describe("Contract deployment and setting for farming", () => {
     console.log("fFStrategyFurioFinance", fFStrategyFurioFinance.address);
   });
 
-
 });
 
 /////////////////////////////////////////////////////////////////////////////////////////////
