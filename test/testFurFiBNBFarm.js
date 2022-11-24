@@ -49,7 +49,7 @@ var deployedAddress = {
     wBNB: "0xae13d989dac2f0debff460ac112a837c89baa7cd",
     exchangeRouter: "0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3",
     fakeUSDC: "0x9555f469d2Fc19Fa85D0B6184C3685950DC99291",
-    fakeUSDT: "0xad612cA832FAe1A1224795046454E1A351703483",
+    fakeUSDT: "0x7F17cC78546c5270ba58Ffa6543F0a0Aa522616F",
     fakeBUSD: "0x1092fd5A7d29bE377678a516895c6F9d9A773572",
     fakeDAI: "0x6d0893eE9FeAA890981Ed721569e8c82356E88b0",
     cake: "0xCDf430577fA8b4Bc680324BFDD1d8CAEE7c33003",
@@ -67,13 +67,13 @@ var deployedAddress = {
   var lpAddresses = {
     bnb_cake_lp: "0x41b6Ab436e5Ed6B5aDbfe1Bb220EB17bE5dEf73b",
     bnb_usdc_lp: "0x7B6e44e243FedF902D9F3CDe3dD3C8a90edc4B55",
-    bnb_usdt_lp: "0x82A0b98a0d12bBf3474B8CcF60CF780B53012C66",
+    bnb_usdt_lp: "0x9b0A88eb9621d15a727a09a368fB65aD43EE5fd3",
     bnb_busd_lp: "0xB3cC546096fe2642756F1cf2258b62B59E7A34Da",
     bnb_dai_lp: "0x02015C0ef18a3a43612b3c652a69E03004eb9e33",
     usdc_busd_lp: "0x24DB5611a646913D65202F7Ebc8654EA3304eEbE",
-    usdc_usdt_lp: "0x72ec0F3525A7c7E8F84C87c2486D0d2d928615f8",
+    usdc_usdt_lp: "0xf45f7CAdD0C0882bC57aD4E84E7522f1a87adB4A",
     dai_busd_lp: "0x8fdf0418827865c2a12957B22Ea667520E1f6295",
-    usdt_busd_lp: "0x1A4113e0fe65B7Da5cC110ab96a6Be3467Ea772b",
+    usdt_busd_lp: "0x38599016f06d3cB32b4149bCCbb2CBcf6f53828d",
     furFi_bnb_lp: "0xd734C3D6B79Fc236092Ef87E1ED35786ce2b800C",
   };
 
@@ -319,13 +319,13 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeUSDT.approve(
         exchangeRouter.address,
-        toBigNum("13000", 6)
+        toBigNum("13000", 18)
       );
       await tx.wait();
 
       var tx = await exchangeRouter.addLiquidityETH(
         fakeUSDT.address,
-        toBigNum("13000", 6),
+        toBigNum("13000", 18),
         0,
         0,
         owner.address,
@@ -443,7 +443,7 @@ describe("Pancakeswap evironment building", () => {
 
       var tx = await fakeUSDT.approve(
         exchangeRouter.address,
-        toBigNum("10000", 6)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
@@ -451,7 +451,7 @@ describe("Pancakeswap evironment building", () => {
         fakeUSDC.address,
         fakeUSDT.address,
         toBigNum("10000", 18),
-        toBigNum("10000", 6),
+        toBigNum("10000", 18),
         0,
         0,
         owner.address,
@@ -511,7 +511,7 @@ describe("Pancakeswap evironment building", () => {
     if (!isOnchain) {
       var tx = await fakeUSDT.approve(
         exchangeRouter.address,
-        toBigNum("10000", 6)
+        toBigNum("10000", 18)
       );
       await tx.wait();
 
@@ -524,7 +524,7 @@ describe("Pancakeswap evironment building", () => {
       var tx = await exchangeRouter.addLiquidity(
         fakeUSDT.address,
         fakeBUSD.address,
-        toBigNum("10000", 6),
+        toBigNum("10000", 18),
         toBigNum("10000", 18),
         0,
         0,

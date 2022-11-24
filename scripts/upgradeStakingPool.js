@@ -1,13 +1,19 @@
 const { ethers, upgrades } = require("hardhat");
 require("dotenv").config();
+const stakingPoolAddress = process.env.stakingPool || "";
 
 async function main() {
-    const stakingPoolAddress = "0x5727EAcF739397cC7c29D0B5BDD5a8070E0c25Df";
+
+    // const StakingPool = await ethers.getContractFactory("StakingPool");
+    // const instance = await upgrades.forceImport(stakingPoolAddress, StakingPool);
+    // console.log("Imported", instance.address);
+
     const StakingPoolV1 = await ethers.getContractFactory("StakingPoolV1");
     await upgrades.upgradeProxy(stakingPoolAddress, StakingPoolV1);
     console.log("StakingPool contract upgraded", stakingPoolAddress);
 
 }
+
 
 main()
     .then(() => process.exit(0))

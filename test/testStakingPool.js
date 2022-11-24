@@ -208,49 +208,67 @@ describe("Contracts deploy", () => {
 
 describe("test ", () => {
   
-    it("user1 stake 100 FURFI", async () => {
-        var tx = await token.transfer(user1.address, toBigNum("100"));
-        await tx.wait();
-
-        var tx = await token.connect(user1).approve(stakingPool.address, toBigNum("100"));
-        await tx.wait();
-
-        var tx = await stakingPool.connect(user1).stake(toBigNum("100"));
-        await tx.wait();
-
-        await network.provider.send("evm_increaseTime", [86400]);
-        await network.provider.send("evm_mine");
-
-    })
-
-    it("user2 stake 200 FURFI", async () => {
-      var tx = await token.transfer(user2.address, toBigNum("200"));
+  it("user1 stake 100 FURFI", async () => {
+    if (!isOnchain) {
+      var tx = await token.transfer(user1.address, toBigNum("100"));
       await tx.wait();
 
-      var tx = await token.connect(user2).approve(stakingPool.address, toBigNum("200"));
+      var tx = await token.connect(user1).approve(stakingPool.address, toBigNum("100"));
       await tx.wait();
 
-      var tx = await stakingPool.connect(user2).stake(toBigNum("200"));
+      var tx = await stakingPool.connect(user1).stake(toBigNum("100"));
       await tx.wait();
+
+      // await network.provider.send("evm_increaseTime", [86400]);
+      // await network.provider.send("evm_mine");
+    }
+
   })
 
-  it("check pending FurFi rewards", async () => {
-    let user1PendingFurFiReward = await stakingPool.getPendingFurFiRewards(user1.address);
-    console.log("user1PendingFurFiReward", fromBigNum(user1PendingFurFiReward));
-    let user2PendingFurFiReward = await stakingPool.getPendingFurFiRewards(user2.address);
-    console.log("user1PendingFurFiReward", fromBigNum(user2PendingFurFiReward));
+  //////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////// upgrade (hardhat test) ////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////
+  // it("upgrade to V1", async () => {
+  //   if (!isOnchain) {
+  //     const StakingPoolV1 = await ethers.getContractFactory("StakingPoolV1");
+  //     await upgrades.upgradeProxy(stakingPool.address, StakingPoolV1);
+  //   }
+  // })
+
+  it("user2 stake 200 FURFI", async () => {
+    if (!isOnchain) {
+        var tx = await token.transfer(user2.address, toBigNum("200"));
+        await tx.wait();
+    
+        var tx = await token.connect(user2).approve(stakingPool.address, toBigNum("200"));
+        await tx.wait();
+    
+        var tx = await stakingPool.connect(user2).stake(toBigNum("200"));
+        await tx.wait();
+    }
   })
 
-  it("user1 unstake", async () => {
-    var tx = await stakingPool.connect(user1).unstake(toBigNum("100"));
-    await tx.wait();
-    await checkTokenBalance();
-  })
+  // it("check pending FurFi rewards", async () => {
+  //   let user1PendingFurFiReward = await stakingPool.getPendingFurFiRewards(user1.address);
+  //   console.log("user1PendingFurFiReward", fromBigNum(user1PendingFurFiReward));
+  //   let user2PendingFurFiReward = await stakingPool.getPendingFurFiRewards(user2.address);
+  //   console.log("user1PendingFurFiReward", fromBigNum(user2PendingFurFiReward));
+  // })
+
+  // it("user1 unstake", async () => {
+  //   if (!isOnchain) {
+  //     var tx = await stakingPool.connect(user1).unstake(toBigNum("100"));
+  //     await tx.wait();
+  //     await checkTokenBalance();
+  //   }
+  // })
 
   // it("user1 claim reward", async () => {
-  //   var tx = await stakingPool.connect(user1).claimLpTokens(toBigNum("0"), toBigNum("400000"), user1.address);
-  //   await tx.wait();
-  //   await checkTokenBalance();
+  //   if (!isOnchain) {
+  //     var tx = await stakingPool.connect(user1).claimLpTokens(toBigNum("0"), toBigNum("400000"), user1.address);
+  //     await tx.wait();
+  //     await checkTokenBalance();
+  //   }
   // })
 
 });

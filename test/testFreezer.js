@@ -20,7 +20,7 @@ var owner;
 var user1;
 var user2;
 
-var isOnchain = true; //true: bsc testnet, false: hardhat net
+var isOnchain = false; //true: bsc testnet, false: hardhat net
 
 var deployedAddress = {
   exchangeFactory: "0xb7926c0430afb07aa7defde6da862ae0bde767bc",
@@ -276,11 +276,29 @@ describe("test ", () => {
       await tx.wait();
     }
   })
+  //////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////// upgrade (hardhat test) ////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////
+  it("upgrade to V1", async () => {
+    if (!isOnchain) {
+      const FreezerV1 = await ethers.getContractFactory("FreezerV1");
+      await upgrades.upgradeProxy(freezer.address, FreezerV1);
+    }
+  })
 
-  // it("check freeze amounts, a month", async () => {
-  //     let data  = await freezer.getParticipant(user1.address, 2);
-  //     console.log("user1 data", data);
-  // })
+
+  it("check user1 all freezing data", async () => {
+    if (!isOnchain) {
+      // let round = await freezer.getRounds(user1.address);
+      // console.log("round", round);
+      // let freeze1 = await freezer.getParticipant(user1.address, 1);
+      // console.log("freeze1", freeze1);
+      // let freeze2 = await freezer.getParticipant(user1.address, 2);
+      // console.log("freeze2", freeze2);
+      let data  = await freezer.getAllParticipant(user1.address);
+      console.log("user1 data", data);
+    }
+  })
 
   it("user1 claim pending reward", async () => {
     if (!isOnchain) {
@@ -291,8 +309,8 @@ describe("test ", () => {
 
   it("user1 unfreeze two month", async () => {
     if (!isOnchain) {
-      // await network.provider.send("evm_increaseTime", [7776000]);
-      // await network.provider.send("evm_mine");
+      await network.provider.send("evm_increaseTime", [7776000]);
+      await network.provider.send("evm_mine");
 
       var tx = await freezer.connect(user1).unfreeze(2);
       await tx.wait();

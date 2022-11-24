@@ -111,6 +111,8 @@ module.exports = {
     bsctestnet: {
       url: process.env.BSC_TESTNET_RPC_URL || "",
       accounts: accounts,
+      gasMultiplier: 5,
+      timeout: 60000,
     },
     bsc: {
       url: process.env.BSC_RPC_URL || "",

@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-contract Freezer is
+contract FreezerV1 is
     Initializable,
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -29,8 +29,8 @@ contract Freezer is
 
     IFurioFinanceToken public FurFiToken;
     IStakingPool public StakingPool;
-    mapping(address => mapping(uint256 => Participant)) private participants;
-    mapping(address => uint256) private rounds;
+    mapping(address => mapping(uint256 => Participant)) public participants;
+    mapping(address => uint256) public rounds;
     mapping(address => uint256) public freezerPoints;
 
     uint256 private furFiRoundMask;
@@ -205,8 +205,17 @@ contract Freezer is
         multipliedRewards = (furFiRewards * (participantMultiplier)) / 1000;
     }
 
+    function getRounds(address participantAddress)
+        public
+        override
+        view
+        returns (uint256)
+    {
+        return rounds[participantAddress];
+    }
+
     function getParticipant(address participantAddress, uint256 round)
-        external
+        public
         override
         view
         returns (Participant memory participant)
@@ -214,14 +223,21 @@ contract Freezer is
         return participants[participantAddress][round];
     }
 
-    function getRounds(address participantAddress)
+    function getAllParticipant(address participantAddress)
         external
-        override
         view
-        returns (uint256)
+        returns (Participant[] memory)
     {
-        return rounds[participantAddress];
+
+        uint256 round = getRounds(participantAddress);
+        Participant[] memory participantsData = new Participant[](round);
+        for(uint256 i = 0; i < round; i++){
+            Participant memory  participant = getParticipant(participantAddress, i++);
+            participantsData[i] = participant;
+        }
+        return participantsData;
     }
+
 
     function getTimeperiod(uint256 index)
         external

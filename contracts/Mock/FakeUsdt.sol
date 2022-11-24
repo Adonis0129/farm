@@ -234,8 +234,8 @@ contract FakeUsdt is Context, IERC20, Mintable {
 	constructor() public {
 		_name = "Fake USDT";
 		_symbol = "USDT";
-		_decimals = 6;
-		_totalSupply = 100000*10**6;
+		_decimals = 18;
+		_totalSupply = 100000*10**18;
 		_balances[msg.sender] = _totalSupply;
 		emit Transfer(address(0), msg.sender, _totalSupply);
 	}
